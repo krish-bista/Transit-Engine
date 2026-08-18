@@ -23,6 +23,8 @@ endif()
 # ── Main executable ─────────────────────────
 add_executable(transit_engine
     src/main.cpp
+    src/raptor_router.cpp
+    src/telemetry_consumer.cpp
     ${PROTO_SRCS}
     ${PROTO_HDRS}
 )
@@ -31,6 +33,17 @@ target_include_directories(transit_engine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}          # generated protobuf headers
 )
+
+find_package(hiredis QUIET)
+if(hiredis_FOUND)
+    target_link_libraries(transit_engine PRIVATE hiredis::hiredis)
+else()
+    target_link_libraries(transit_engine PRIVATE hiredis)
+endif()
+
+if(WIN32)
+    target_link_libraries(transit_engine PRIVATE ws2_32)
+endif()
 
 target_link_libraries(transit_engine PRIVATE
     protobuf::libprotobuf
