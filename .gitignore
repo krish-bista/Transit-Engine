@@ -1,0 +1,58 @@
+# ──────────────────────────────────────────────
+# CMake / C++ Build Artifacts
+# ──────────────────────────────────────────────
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.lib
+*.exe
+compile_commands.json
+*.cmake
+!CMakeLists.txt
+
+# ──────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+*.egg
+.venv/
+venv/
+.env
+
+# ──────────────────────────────────────────────
+# Data Files
+# ──────────────────────────────────────────────
+*.bin
+
+# ──────────────────────────────────────────────
+# OS Junk
+# ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ──────────────────────────────────────────────
+# IDE / Editor
+# ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.user
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

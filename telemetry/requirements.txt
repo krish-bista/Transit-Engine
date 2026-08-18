@@ -1,0 +1,3 @@
+pandas>=2.2,<3
+protobuf>=5.27,<6
+redis>=5.0,<6
