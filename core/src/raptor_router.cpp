@@ -15,6 +15,13 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
     std::shared_lock lock(graph_.graph_mutex);
 
     const size_t num_stops = graph_.stops.size();
+    source_stop_ = source_stop;
+
+    parent_stop_.assign(num_stops, INF);
+    parent_route_.assign(num_stops, INF);
+    board_time_.assign(num_stops, 0);
+    alight_time_.assign(num_stops, 0);
+
     if (source_stop >= num_stops || target_stop >= num_stops) {
         return INF;
     }
@@ -64,6 +71,8 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
 
             const auto& route = graph_.routes[r_id];
             uint32_t current_trip = INF;
+            uint32_t board_stop_id = INF;
+            uint32_t current_board_time = 0;
 
             for (uint32_t p = route_boarding[r_id]; p < route.num_stops; ++p) {
                 const uint32_t stop_id = graph_.route_stops[route.route_stops_offset + p];
@@ -77,6 +86,11 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
                     if (st.arr_sec < earliest_arrival[stop_id]) {
                         earliest_arrival[stop_id] = st.arr_sec;
                         next_marked[stop_id] = true;
+
+                        parent_stop_[stop_id] = board_stop_id;
+                        parent_route_[stop_id] = r_id;
+                        board_time_[stop_id] = current_board_time;
+                        alight_time_[stop_id] = st.arr_sec;
                     }
                 }
 
@@ -90,6 +104,8 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
                         if (st.dep_sec >= earliest_arrival[stop_id]) {
                             if (current_trip == INF || t < current_trip) {
                                 current_trip = t;
+                                board_stop_id = stop_id;
+                                current_board_time = st.dep_sec;
                             }
                             break; // First matching trip is the earliest departing
                         }
@@ -102,6 +118,8 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
 
                         if (st.dep_sec >= earliest_arrival[stop_id]) {
                             current_trip = t;
+                            board_stop_id = stop_id;
+                            current_board_time = st.dep_sec;
                             break;
                         }
                     }
@@ -126,6 +144,32 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
     }
 
     return earliest_arrival[target_stop];
+}
+
+std::vector<RaptorRouter::Leg> RaptorRouter::reconstruct_path(uint32_t target_stop) const {
+    std::vector<RaptorRouter::Leg> path;
+    const size_t num_stops = graph_.stops.size();
+    if (target_stop >= num_stops || source_stop_ >= num_stops || source_stop_ == target_stop) {
+        return path;
+    }
+
+    uint32_t curr = target_stop;
+    size_t iterations = 0;
+    while (curr != source_stop_ && parent_stop_[curr] != INF && parent_route_[curr] != INF && iterations < num_stops) {
+        RaptorRouter::Leg leg;
+        leg.board_stop = parent_stop_[curr];
+        leg.alight_stop = curr;
+        leg.route_id = parent_route_[curr];
+        leg.board_time = board_time_[curr];
+        leg.alight_time = alight_time_[curr];
+        path.push_back(leg);
+
+        curr = parent_stop_[curr];
+        ++iterations;
+    }
+
+    std::reverse(path.begin(), path.end());
+    return path;
 }
 
 } // namespace transit

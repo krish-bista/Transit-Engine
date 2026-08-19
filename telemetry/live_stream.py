@@ -8,13 +8,14 @@ at regular intervals with automatic reconnection.
 from __future__ import annotations
 
 import json
+import os
 import random
 import sys
 import time
 import redis
 
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_CHANNEL = "gtfs_rt_delays"
 PUBLISH_INTERVAL_SEC = 2.0
 

@@ -6,11 +6,20 @@
 #include <memory>
 
 int main() {
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
   try {
-    auto stops = transit::load_binary_data<transit::PackedStop>(
-        "../../binary_gtfs/stops.bin");
-    auto stop_times = transit::load_binary_data<transit::PackedStopTime>(
-        "../../binary_gtfs/stop_times.bin");
+    std::string stops_path = "binary_gtfs/stops.bin";
+    std::string stop_times_path = "binary_gtfs/stop_times.bin";
+
+    std::ifstream test_f(stops_path);
+    if (!test_f.good()) {
+      stops_path = "../../binary_gtfs/stops.bin";
+      stop_times_path = "../../binary_gtfs/stop_times.bin";
+    }
+
+    auto stops = transit::load_binary_data<transit::PackedStop>(stops_path);
+    auto stop_times =
+        transit::load_binary_data<transit::PackedStopTime>(stop_times_path);
 
     std::cout << "Loaded " << stops.size() << " stops\n";
     std::cout << "Loaded " << stop_times.size() << " stop times\n";

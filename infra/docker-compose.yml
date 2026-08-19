@@ -1,18 +1,27 @@
 services:
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
     container_name: transit-redis
     ports:
       - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
-volumes:
-  redis-data:
+  engine:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.cpp
+    container_name: transit-engine
+    depends_on:
+      - redis
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+
+  telemetry:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.python
+    container_name: transit-telemetry
+    depends_on:
+      - redis
+    restart: unless-stopped

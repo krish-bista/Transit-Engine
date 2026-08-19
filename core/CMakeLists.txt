@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ── Dependencies ─────────────────────────────
 find_package(Protobuf CONFIG REQUIRED)
-find_package(gRPC    CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 
 # ── Locate protoc and grpc_cpp_plugin ────────
 find_program(_PROTOBUF_PROTOC protoc)
@@ -65,10 +65,11 @@ add_executable(transit_engine
 target_include_directories(transit_engine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}          # generated protobuf / gRPC headers
+    ${Protobuf_INCLUDE_DIRS}
 )
 
 find_package(hiredis QUIET)
-if(hiredis_FOUND)
+if(TARGET hiredis::hiredis)
     target_link_libraries(transit_engine PRIVATE hiredis::hiredis)
 else()
     target_link_libraries(transit_engine PRIVATE hiredis)
@@ -78,8 +79,14 @@ if(WIN32)
     target_link_libraries(transit_engine PRIVATE ws2_32)
 endif()
 
-target_link_libraries(transit_engine PRIVATE
-    protobuf::libprotobuf
-    gRPC::grpc++
-    gRPC::grpc++_reflection
-)
+if(TARGET protobuf::libprotobuf)
+    target_link_libraries(transit_engine PRIVATE protobuf::libprotobuf)
+else()
+    target_link_libraries(transit_engine PRIVATE ${Protobuf_LIBRARIES})
+endif()
+
+if(TARGET gRPC::grpc++)
+    target_link_libraries(transit_engine PRIVATE gRPC::grpc++ gRPC::grpc++_reflection)
+else()
+    target_link_libraries(transit_engine PRIVATE grpc++ grpc++_reflection grpc)
+endif()

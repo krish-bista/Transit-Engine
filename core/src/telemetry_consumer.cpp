@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #else
+#include <sys/socket.h>
 #include <unistd.h>
 #endif
 
@@ -111,7 +112,7 @@ void TelemetryConsumer::run(std::string host, int port, std::string channel) {
                             }
 
                             std::cout << "Live Update: Trip " << trip_id
-                                      << " delayed by " << delay << "s\n";
+                                      << " delayed by " << delay << "s\n" << std::flush;
                         } catch (const std::exception& e) {
                             std::cerr << "TelemetryConsumer: JSON parse error: " << e.what() << "\n";
                         }

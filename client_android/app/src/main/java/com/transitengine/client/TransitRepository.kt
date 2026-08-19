@@ -19,9 +19,15 @@ class TransitRepository {
 
     private val stub = RoutingEngineGrpcKt.RoutingEngineCoroutineStub(channel)
 
+    private fun formatTime(seconds: Int): String {
+        val h = seconds / 3600
+        val m = (seconds % 3600) / 60
+        return "%02d:%02d".format(h, m)
+    }
+
     /**
      * Calls the backend GetEarliestArrival RPC and returns the result
-     * formatted as "HH:MM", or an error / "No route" message.
+     * formatted with arrival time and itinerary legs.
      */
     suspend fun getRoute(source: Int, target: Int, depTime: Int): String {
         return try {
@@ -32,11 +38,19 @@ class TransitRepository {
             }
             val response = stub.getEarliestArrival(request)
 
-            if (response.success) {
-                val totalSeconds = response.arrivalTime.toInt()
-                val h = totalSeconds / 3600
-                val m = (totalSeconds % 3600) / 60
-                "%02d:%02d".format(h, m)
+            if (response.success && response.itineraryList.isNotEmpty()) {
+                val lastLeg = response.itineraryList.last()
+                val arrivalStr = formatTime(lastLeg.alightTime.toInt())
+                val sb = StringBuilder()
+                sb.append("Arrival: $arrivalStr\n\nItinerary:")
+                for ((idx, leg) in response.itineraryList.withIndex()) {
+                    val bTime = formatTime(leg.boardTime.toInt())
+                    val aTime = formatTime(leg.alightTime.toInt())
+                    sb.append("\n${idx + 1}. Route ${leg.routeId}: Stop ${leg.boardStop} ($bTime) -> Stop ${leg.alightStop} ($aTime)")
+                }
+                sb.toString()
+            } else if (response.success) {
+                formatTime(depTime)
             } else {
                 "No route found"
             }

@@ -18,7 +18,7 @@ public:
     TelemetryConsumer(const TelemetryConsumer&) = delete;
     TelemetryConsumer& operator=(const TelemetryConsumer&) = delete;
 
-    void start(const std::string& host = "127.0.0.1",
+    void start(const std::string& host = "redis",
                int port = 6379,
                const std::string& channel = "gtfs_rt_delays");
     void stop();

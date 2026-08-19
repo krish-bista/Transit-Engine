@@ -22,10 +22,17 @@ RoutingServiceImpl::GetEarliestArrival(grpc::ServerContext * /*context*/,
                                    request->departure_time());
 
   if (arrival == 0xFFFFFFFF) {
-    response->set_arrival_time(0);
     response->set_success(false);
   } else {
-    response->set_arrival_time(arrival);
+    auto legs = router.reconstruct_path(request->target_stop());
+    for (const auto &leg : legs) {
+      auto *proto_leg = response->add_itinerary();
+      proto_leg->set_board_stop(leg.board_stop);
+      proto_leg->set_alight_stop(leg.alight_stop);
+      proto_leg->set_route_id(leg.route_id);
+      proto_leg->set_board_time(leg.board_time);
+      proto_leg->set_alight_time(leg.alight_time);
+    }
     response->set_success(true);
   }
 
