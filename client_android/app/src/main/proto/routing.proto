@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package transit;
+
+option java_package = "com.transitengine.client";
+option java_multiple_files = true;
+
+service RoutingEngine {
+  rpc GetEarliestArrival(RouteRequest) returns (RouteResponse);
+}
+
+message RouteRequest {
+  uint32 source_stop     = 1;
+  uint32 target_stop     = 2;
+  uint32 departure_time  = 3;
+}
+
+message RouteResponse {
+  uint32 arrival_time = 1;
+  bool   success      = 2;
+}
