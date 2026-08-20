@@ -1,0 +1,9 @@
+@echo off
+echo Starting Android Emulator on your desktop...
+start "" "C:\Users\panka\AppData\Local\Android\Sdk\emulator\emulator.exe" -avd Medium_Phone
+timeout /t 5 /nobreak >nul
+echo Waiting for device...
+"C:\Users\panka\AppData\Local\Android\Sdk\platform-tools\adb.exe" wait-for-device
+echo Launching Transit Client...
+"C:\Users\panka\AppData\Local\Android\Sdk\platform-tools\adb.exe" shell am start -n com.transitengine.client/.MainActivity
+echo Done! The app is open on your emulator.
