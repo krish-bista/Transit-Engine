@@ -1,0 +1,2918 @@
+[
+  {
+    "id": 0,
+    "name": "Ft. Wm. Rd. & Transit Office"
+  },
+  {
+    "id": 1,
+    "name": "Ft. Wm. Rd. & Central"
+  },
+  {
+    "id": 2,
+    "name": "Ft. Wm. Rd. & Walmart"
+  },
+  {
+    "id": 3,
+    "name": "Ft. Wm. Rd. & Harbour Expy"
+  },
+  {
+    "id": 4,
+    "name": "Ft. Wm. Rd. & Intercity"
+  },
+  {
+    "id": 5,
+    "name": "Intercity Shopping Centre"
+  },
+  {
+    "id": 6,
+    "name": "Ft. Wm. Rd. & Northern"
+  },
+  {
+    "id": 7,
+    "name": "Simpson & Southern"
+  },
+  {
+    "id": 8,
+    "name": "Simpson & Assef Ct."
+  },
+  {
+    "id": 9,
+    "name": "Simpson & Pacific"
+  },
+  {
+    "id": 10,
+    "name": "Simpson & Rowand"
+  },
+  {
+    "id": 11,
+    "name": "Simpson & Ogden"
+  },
+  {
+    "id": 12,
+    "name": "Simpson & Finlayson"
+  },
+  {
+    "id": 13,
+    "name": "Simpson & Dease"
+  },
+  {
+    "id": 14,
+    "name": "Simpson & Bethune"
+  },
+  {
+    "id": 15,
+    "name": "City Hall Terminal"
+  },
+  {
+    "id": 16,
+    "name": "Donald & Cent. Sq."
+  },
+  {
+    "id": 17,
+    "name": "Vickers & Victoria"
+  },
+  {
+    "id": 18,
+    "name": "Victoria & Marks"
+  },
+  {
+    "id": 19,
+    "name": "Court & River"
+  },
+  {
+    "id": 20,
+    "name": "Franklin & Arthur"
+  },
+  {
+    "id": 21,
+    "name": "Franklin & Isabella"
+  },
+  {
+    "id": 22,
+    "name": "Franklin & Moodie"
+  },
+  {
+    "id": 23,
+    "name": "Walsh & Franklin"
+  },
+  {
+    "id": 24,
+    "name": "Walsh & St. Pats"
+  },
+  {
+    "id": 25,
+    "name": "Sprague & Empire"
+  },
+  {
+    "id": 26,
+    "name": "Sprague & Brock"
+  },
+  {
+    "id": 27,
+    "name": "Brock & 300s Block"
+  },
+  {
+    "id": 28,
+    "name": "Brock & Tarbutt"
+  },
+  {
+    "id": 29,
+    "name": "Brock & 200s Block"
+  },
+  {
+    "id": 30,
+    "name": "Ford & Brock"
+  },
+  {
+    "id": 31,
+    "name": "Ford & Frederica"
+  },
+  {
+    "id": 32,
+    "name": "Frederica & Ford"
+  },
+  {
+    "id": 33,
+    "name": "Frederica & 100s Block"
+  },
+  {
+    "id": 34,
+    "name": "Frederica & Edward"
+  },
+  {
+    "id": 35,
+    "name": "Frederica & Brown"
+  },
+  {
+    "id": 36,
+    "name": "Frederica & 200s Block"
+  },
+  {
+    "id": 37,
+    "name": "Frederica & Heath"
+  },
+  {
+    "id": 38,
+    "name": "Frederica at James"
+  },
+  {
+    "id": 39,
+    "name": "Frederica & Centre"
+  },
+  {
+    "id": 40,
+    "name": "Frederica & Mountdale"
+  },
+  {
+    "id": 41,
+    "name": "Frederica & Crawford"
+  },
+  {
+    "id": 42,
+    "name": "Frederica & Stanley"
+  },
+  {
+    "id": 43,
+    "name": "Frederica & Georgina"
+  },
+  {
+    "id": 44,
+    "name": "Frederica & Alpine"
+  },
+  {
+    "id": 45,
+    "name": "Neebing & Francis"
+  },
+  {
+    "id": 46,
+    "name": "Mary & Neebing"
+  },
+  {
+    "id": 47,
+    "name": "Mary & Holt"
+  },
+  {
+    "id": 48,
+    "name": "Mary & Georgina"
+  },
+  {
+    "id": 49,
+    "name": "Mary & Nipigon"
+  },
+  {
+    "id": 50,
+    "name": "Mary & Home"
+  },
+  {
+    "id": 51,
+    "name": "Mary & Broadmore"
+  },
+  {
+    "id": 52,
+    "name": "Mary & Euclid"
+  },
+  {
+    "id": 53,
+    "name": "Mary & Yonge"
+  },
+  {
+    "id": 54,
+    "name": "Mary & Heath"
+  },
+  {
+    "id": 55,
+    "name": "Mary & Brown"
+  },
+  {
+    "id": 56,
+    "name": "Brown & Francis"
+  },
+  {
+    "id": 57,
+    "name": "Brown & Frederica"
+  },
+  {
+    "id": 58,
+    "name": "Frederica & Brown"
+  },
+  {
+    "id": 59,
+    "name": "Frederica & Edward"
+  },
+  {
+    "id": 60,
+    "name": "Frederica & 100s Block"
+  },
+  {
+    "id": 61,
+    "name": "Ford & Frederica"
+  },
+  {
+    "id": 62,
+    "name": "Ford & Francis"
+  },
+  {
+    "id": 63,
+    "name": "Brock & 200s Block"
+  },
+  {
+    "id": 64,
+    "name": "Brock & Tarbutt"
+  },
+  {
+    "id": 65,
+    "name": "Brock & 300s Block"
+  },
+  {
+    "id": 66,
+    "name": "Brock & Sprague"
+  },
+  {
+    "id": 67,
+    "name": "Sprague & Brock"
+  },
+  {
+    "id": 68,
+    "name": "Sprague & Empire"
+  },
+  {
+    "id": 69,
+    "name": "Sprague & Walsh"
+  },
+  {
+    "id": 70,
+    "name": "Walsh & Selkirk"
+  },
+  {
+    "id": 71,
+    "name": "Franklin & Moodie"
+  },
+  {
+    "id": 72,
+    "name": "Franklin & Isabella"
+  },
+  {
+    "id": 73,
+    "name": "Franklin & Ridgeway"
+  },
+  {
+    "id": 74,
+    "name": "Franklin & Arthur"
+  },
+  {
+    "id": 75,
+    "name": "Franklin & Donald"
+  },
+  {
+    "id": 76,
+    "name": "Victoria & Marks"
+  },
+  {
+    "id": 77,
+    "name": "Vickers & Victoria"
+  },
+  {
+    "id": 78,
+    "name": "Arthur & McKellar"
+  },
+  {
+    "id": 79,
+    "name": "Simpson & Miles"
+  },
+  {
+    "id": 80,
+    "name": "Simpson & Bethune"
+  },
+  {
+    "id": 81,
+    "name": "Simpson & Dease"
+  },
+  {
+    "id": 82,
+    "name": "Simpson & Finlayson"
+  },
+  {
+    "id": 83,
+    "name": "Simpson & Ogden"
+  },
+  {
+    "id": 84,
+    "name": "Simpson & Rowand"
+  },
+  {
+    "id": 85,
+    "name": "Simpson & Pacific"
+  },
+  {
+    "id": 86,
+    "name": "Simpson & Atlantic"
+  },
+  {
+    "id": 87,
+    "name": "Simpson & Southern"
+  },
+  {
+    "id": 88,
+    "name": "Ft. Wm. Rd. & Isabel"
+  },
+  {
+    "id": 89,
+    "name": "Intercity Shopping Centre"
+  },
+  {
+    "id": 90,
+    "name": "Ft. Wm. Rd. & Intercity"
+  },
+  {
+    "id": 91,
+    "name": "Ft. Wm. Rd. & Main"
+  },
+  {
+    "id": 92,
+    "name": "Ft. Wm. Rd. & Mooney"
+  },
+  {
+    "id": 93,
+    "name": "Ft. Wm. Rd. & Central"
+  },
+  {
+    "id": 94,
+    "name": "Ft. Wm. Rd. & Spofford"
+  },
+  {
+    "id": 95,
+    "name": "Ft. Wm. Rd. & Court"
+  },
+  {
+    "id": 96,
+    "name": "Court & Wholesale Club"
+  },
+  {
+    "id": 97,
+    "name": "Court & John"
+  },
+  {
+    "id": 98,
+    "name": "Court & Cornwall"
+  },
+  {
+    "id": 99,
+    "name": "Bay & Johnson"
+  },
+  {
+    "id": 100,
+    "name": "Cumberland & Water"
+  },
+  {
+    "id": 101,
+    "name": "Cumberland & Pearl"
+  },
+  {
+    "id": 102,
+    "name": "Cumberland & Red River"
+  },
+  {
+    "id": 103,
+    "name": "Waterfront Terminal"
+  },
+  {
+    "id": 104,
+    "name": "Cumberland & Villa"
+  },
+  {
+    "id": 105,
+    "name": "Cumberland & St. James"
+  },
+  {
+    "id": 106,
+    "name": "Cumberland & Van Horne"
+  },
+  {
+    "id": 107,
+    "name": "Cumberland & Angus"
+  },
+  {
+    "id": 108,
+    "name": "Cumberland & Egan"
+  },
+  {
+    "id": 109,
+    "name": "Cumberland & Fitzgerald"
+  },
+  {
+    "id": 110,
+    "name": "Clavet & Cumberland"
+  },
+  {
+    "id": 111,
+    "name": "Clavet & Algoma"
+  },
+  {
+    "id": 112,
+    "name": "Algoma & Dawson Court"
+  },
+  {
+    "id": 113,
+    "name": "Algoma & MacDougall"
+  },
+  {
+    "id": 114,
+    "name": "MacDougall & Algoma"
+  },
+  {
+    "id": 115,
+    "name": "MacDougall & Cumberland"
+  },
+  {
+    "id": 116,
+    "name": "Cumberland & Gibson"
+  },
+  {
+    "id": 117,
+    "name": "Cumberland & Parks North"
+  },
+  {
+    "id": 118,
+    "name": "Hodder & Grenville"
+  },
+  {
+    "id": 119,
+    "name": "Hodder & Cuyler"
+  },
+  {
+    "id": 120,
+    "name": "Hodder & Merrill"
+  },
+  {
+    "id": 121,
+    "name": "Hodder & Morse"
+  },
+  {
+    "id": 122,
+    "name": "Hodder & Lillian"
+  },
+  {
+    "id": 123,
+    "name": "Hodder & Surrey"
+  },
+  {
+    "id": 124,
+    "name": "Hodder & Arundel"
+  },
+  {
+    "id": 125,
+    "name": "Hodder & Elliot"
+  },
+  {
+    "id": 126,
+    "name": "Hodder & Black Bay"
+  },
+  {
+    "id": 127,
+    "name": "Hodder & Rona"
+  },
+  {
+    "id": 128,
+    "name": "Cowan & Hodder"
+  },
+  {
+    "id": 129,
+    "name": "Leslie & Rona"
+  },
+  {
+    "id": 130,
+    "name": "Leslie & Black Bay"
+  },
+  {
+    "id": 131,
+    "name": "Black Bay & Grenville"
+  },
+  {
+    "id": 132,
+    "name": "Black Bay & Dewe"
+  },
+  {
+    "id": 133,
+    "name": "Dewe & 500s Block"
+  },
+  {
+    "id": 134,
+    "name": "Dewe & Arundel"
+  },
+  {
+    "id": 135,
+    "name": "Arundel & Grenville"
+  },
+  {
+    "id": 136,
+    "name": "Leslie & Arundel"
+  },
+  {
+    "id": 137,
+    "name": "Leslie & Conyers"
+  },
+  {
+    "id": 138,
+    "name": "Leslie & Talbot"
+  },
+  {
+    "id": 139,
+    "name": "Lillian & Leslie"
+  },
+  {
+    "id": 140,
+    "name": "Greville & Rita"
+  },
+  {
+    "id": 141,
+    "name": "Grenville & Morse"
+  },
+  {
+    "id": 142,
+    "name": "Grenville & Marion"
+  },
+  {
+    "id": 143,
+    "name": "Grenville & Adams"
+  },
+  {
+    "id": 144,
+    "name": "Grenville & Roberta"
+  },
+  {
+    "id": 145,
+    "name": "Grenville & Adelaide"
+  },
+  {
+    "id": 146,
+    "name": "Cumberland & Grenville"
+  },
+  {
+    "id": 147,
+    "name": "Cumberland & Gibson"
+  },
+  {
+    "id": 148,
+    "name": "Cumberland & Beck"
+  },
+  {
+    "id": 149,
+    "name": "Cumberland & MacDougall"
+  },
+  {
+    "id": 150,
+    "name": "Clavet & Cumberland"
+  },
+  {
+    "id": 151,
+    "name": "Cumberland & Munro"
+  },
+  {
+    "id": 152,
+    "name": "Cumberland & Egan"
+  },
+  {
+    "id": 153,
+    "name": "Cumberland & Angus"
+  },
+  {
+    "id": 154,
+    "name": "Cumberland & Van Horne"
+  },
+  {
+    "id": 155,
+    "name": "Cumberland & Wolseley"
+  },
+  {
+    "id": 156,
+    "name": "Cumberland & Elgin"
+  },
+  {
+    "id": 157,
+    "name": "Cumberland & Villa"
+  },
+  {
+    "id": 158,
+    "name": "Cumberland & Red River"
+  },
+  {
+    "id": 159,
+    "name": "Cumberland & Pearl"
+  },
+  {
+    "id": 160,
+    "name": "Cumberland & Wilson"
+  },
+  {
+    "id": 161,
+    "name": "Cumberland & Water"
+  },
+  {
+    "id": 162,
+    "name": "Bay & Johnson"
+  },
+  {
+    "id": 163,
+    "name": "Court & Bay"
+  },
+  {
+    "id": 164,
+    "name": "Court & Cornwall"
+  },
+  {
+    "id": 165,
+    "name": "Court & Queen"
+  },
+  {
+    "id": 166,
+    "name": "Ft. Wm. Rd. & Wholesale Club"
+  },
+  {
+    "id": 167,
+    "name": "Ft. Wm. Rd. & Lisgar"
+  },
+  {
+    "id": 168,
+    "name": "Ft. Wm. Rd. & Water"
+  },
+  {
+    "id": 169,
+    "name": "Ft. Wm. Rd. & Second"
+  },
+  {
+    "id": 170,
+    "name": "Camelot & Court"
+  },
+  {
+    "id": 171,
+    "name": "Court & Manitou"
+  },
+  {
+    "id": 172,
+    "name": "John & Machar"
+  },
+  {
+    "id": 173,
+    "name": "John & Secord"
+  },
+  {
+    "id": 174,
+    "name": "John & Banning"
+  },
+  {
+    "id": 175,
+    "name": "High & Queen"
+  },
+  {
+    "id": 176,
+    "name": "Canada Games Complex"
+  },
+  {
+    "id": 177,
+    "name": "Community Auditorium"
+  },
+  {
+    "id": 178,
+    "name": "Beverly & Newton"
+  },
+  {
+    "id": 179,
+    "name": "Beverly & Ravenwood"
+  },
+  {
+    "id": 180,
+    "name": "Oliver & Balmoral"
+  },
+  {
+    "id": 181,
+    "name": "Lakehead University"
+  },
+  {
+    "id": 182,
+    "name": "Nursing Building"
+  },
+  {
+    "id": 183,
+    "name": "Oliver & Keith Jobbitt"
+  },
+  {
+    "id": 184,
+    "name": "Thunder Bay Regional Hospital"
+  },
+  {
+    "id": 185,
+    "name": "Golf Links & Oliver"
+  },
+  {
+    "id": 186,
+    "name": "Golf Links & Medical Clinic"
+  },
+  {
+    "id": 187,
+    "name": "Golf Links & Ridgecrest"
+  },
+  {
+    "id": 188,
+    "name": "Golf Links & Innovation"
+  },
+  {
+    "id": 189,
+    "name": "Golf Links & Fanshaw"
+  },
+  {
+    "id": 190,
+    "name": "Confederation College"
+  },
+  {
+    "id": 191,
+    "name": "Sibley Residence"
+  },
+  {
+    "id": 192,
+    "name": "Edward & James"
+  },
+  {
+    "id": 193,
+    "name": "Edward & Ironwood"
+  },
+  {
+    "id": 194,
+    "name": "Edward & Redwood"
+  },
+  {
+    "id": 195,
+    "name": "Northwood Park Plaza"
+  },
+  {
+    "id": 196,
+    "name": "Edward & Ward"
+  },
+  {
+    "id": 197,
+    "name": "Edward & Churchill"
+  },
+  {
+    "id": 198,
+    "name": "Edward & Parkway"
+  },
+  {
+    "id": 199,
+    "name": "Edward & Miles"
+  },
+  {
+    "id": 200,
+    "name": "Victoria & Maplewood"
+  },
+  {
+    "id": 201,
+    "name": "Victoria & Ford"
+  },
+  {
+    "id": 202,
+    "name": "Victoria & Lillie"
+  },
+  {
+    "id": 203,
+    "name": "Victoria & Hyde Park"
+  },
+  {
+    "id": 204,
+    "name": "Victoria & Wellington"
+  },
+  {
+    "id": 205,
+    "name": "Victoria & Selkirk"
+  },
+  {
+    "id": 206,
+    "name": "Victoria & Franklin"
+  },
+  {
+    "id": 207,
+    "name": "Victoria & Waterloo"
+  },
+  {
+    "id": 208,
+    "name": "Victoria & Friendship Gardens"
+  },
+  {
+    "id": 209,
+    "name": "Victoria & Lillie"
+  },
+  {
+    "id": 210,
+    "name": "Victoria & Ford"
+  },
+  {
+    "id": 211,
+    "name": "Victoria & Maplewood"
+  },
+  {
+    "id": 212,
+    "name": "Edward & Victoria"
+  },
+  {
+    "id": 213,
+    "name": "Edward & Donald"
+  },
+  {
+    "id": 214,
+    "name": "Edward & Begin"
+  },
+  {
+    "id": 215,
+    "name": "Edward & Isabella"
+  },
+  {
+    "id": 216,
+    "name": "Edward & Walsh"
+  },
+  {
+    "id": 217,
+    "name": "Edward & Gordon"
+  },
+  {
+    "id": 218,
+    "name": "Edward & Christina"
+  },
+  {
+    "id": 219,
+    "name": "Edward & Brock"
+  },
+  {
+    "id": 220,
+    "name": "Edward & Frederica"
+  },
+  {
+    "id": 221,
+    "name": "Gore & Brown"
+  },
+  {
+    "id": 222,
+    "name": "Brown & Frederica"
+  },
+  {
+    "id": 223,
+    "name": "Brown & Francis"
+  },
+  {
+    "id": 224,
+    "name": "Brock & Brown"
+  },
+  {
+    "id": 225,
+    "name": "Edward & Brock"
+  },
+  {
+    "id": 226,
+    "name": "Edward & Christina"
+  },
+  {
+    "id": 227,
+    "name": "Edward & Gordon"
+  },
+  {
+    "id": 228,
+    "name": "Edward & Walsh"
+  },
+  {
+    "id": 229,
+    "name": "Edward & Isabella"
+  },
+  {
+    "id": 230,
+    "name": "Edward & Arthur"
+  },
+  {
+    "id": 231,
+    "name": "Edward & Donald"
+  },
+  {
+    "id": 232,
+    "name": "Edward & Victoria"
+  },
+  {
+    "id": 233,
+    "name": "Edward & Riverview"
+  },
+  {
+    "id": 234,
+    "name": "Edward & Churchill"
+  },
+  {
+    "id": 235,
+    "name": "Edward & Ward"
+  },
+  {
+    "id": 236,
+    "name": "Edward & Redwood"
+  },
+  {
+    "id": 237,
+    "name": "Edward & Woodlawn"
+  },
+  {
+    "id": 238,
+    "name": "Edward & James"
+  },
+  {
+    "id": 239,
+    "name": "Sibley Residence"
+  },
+  {
+    "id": 240,
+    "name": "Golf Links & Fanshaw"
+  },
+  {
+    "id": 241,
+    "name": "Golf Links & Medical Clinic"
+  },
+  {
+    "id": 242,
+    "name": "Golf Links & Oliver"
+  },
+  {
+    "id": 243,
+    "name": "Thunder Bay Regional Hospital"
+  },
+  {
+    "id": 244,
+    "name": "Oliver & Sanders"
+  },
+  {
+    "id": 245,
+    "name": "Oliver & Bora Laskin"
+  },
+  {
+    "id": 246,
+    "name": "Beverly & Ravenwood"
+  },
+  {
+    "id": 247,
+    "name": "Beverly & Darwin"
+  },
+  {
+    "id": 248,
+    "name": "Community Auditorium"
+  },
+  {
+    "id": 249,
+    "name": "Tbaytel Park"
+  },
+  {
+    "id": 250,
+    "name": "High & Queen"
+  },
+  {
+    "id": 251,
+    "name": "Oliver & High"
+  },
+  {
+    "id": 252,
+    "name": "John & Ontario"
+  },
+  {
+    "id": 253,
+    "name": "Algoma & John"
+  },
+  {
+    "id": 254,
+    "name": "Algoma & Cornwall"
+  },
+  {
+    "id": 255,
+    "name": "Algoma & Bay"
+  },
+  {
+    "id": 256,
+    "name": "Algoma & Dufferin"
+  },
+  {
+    "id": 257,
+    "name": "Algoma & Pearl"
+  },
+  {
+    "id": 258,
+    "name": "Court & Tupper"
+  },
+  {
+    "id": 259,
+    "name": "Margaret & Farrand"
+  },
+  {
+    "id": 260,
+    "name": "Margaret & Gibbon"
+  },
+  {
+    "id": 261,
+    "name": "Balsam & Clayte"
+  },
+  {
+    "id": 262,
+    "name": "Balsam & Hull"
+  },
+  {
+    "id": 263,
+    "name": "Balsam & Velva"
+  },
+  {
+    "id": 264,
+    "name": "Hudson & Huron"
+  },
+  {
+    "id": 265,
+    "name": "Hudson Heights Apartments"
+  },
+  {
+    "id": 266,
+    "name": "Hudson & Shuniah"
+  },
+  {
+    "id": 267,
+    "name": "Hudson & Toledo"
+  },
+  {
+    "id": 268,
+    "name": "Toledo & Michigan"
+  },
+  {
+    "id": 269,
+    "name": "Huron & Otto"
+  },
+  {
+    "id": 270,
+    "name": "Shuniah & Huron"
+  },
+  {
+    "id": 271,
+    "name": "Shuniah & Chamberlain"
+  },
+  {
+    "id": 272,
+    "name": "Shuniah & Redmond"
+  },
+  {
+    "id": 273,
+    "name": "Shuniah & Albany"
+  },
+  {
+    "id": 274,
+    "name": "Albany & Munro"
+  },
+  {
+    "id": 275,
+    "name": "Court & McCulloch"
+  },
+  {
+    "id": 276,
+    "name": "Algoma & Munro"
+  },
+  {
+    "id": 277,
+    "name": "Algoma & 400s Block"
+  },
+  {
+    "id": 278,
+    "name": "Algoma & Angus"
+  },
+  {
+    "id": 279,
+    "name": "Algoma & McIntyre"
+  },
+  {
+    "id": 280,
+    "name": "Algoma & Wolseley"
+  },
+  {
+    "id": 281,
+    "name": "River & Port Arthur Clinic"
+  },
+  {
+    "id": 282,
+    "name": "Court & Ray"
+  },
+  {
+    "id": 283,
+    "name": "Court & Tupper"
+  },
+  {
+    "id": 284,
+    "name": "Red River & Algoma"
+  },
+  {
+    "id": 285,
+    "name": "Red River & Regent"
+  },
+  {
+    "id": 286,
+    "name": "Red River & Waverley"
+  },
+  {
+    "id": 287,
+    "name": "Red River & High"
+  },
+  {
+    "id": 288,
+    "name": "Red River & Hill"
+  },
+  {
+    "id": 289,
+    "name": "Red River & Pine"
+  },
+  {
+    "id": 290,
+    "name": "Red River & Martha"
+  },
+  {
+    "id": 291,
+    "name": "Red River & Hodge"
+  },
+  {
+    "id": 292,
+    "name": "St. Joseph's Heritage"
+  },
+  {
+    "id": 293,
+    "name": "Van Norman & Dorothy"
+  },
+  {
+    "id": 294,
+    "name": "Red River & Kenogami"
+  },
+  {
+    "id": 295,
+    "name": "Red River & Algonquin"
+  },
+  {
+    "id": 296,
+    "name": "Red River & Clarkson"
+  },
+  {
+    "id": 297,
+    "name": "Red River & Junot"
+  },
+  {
+    "id": 298,
+    "name": "County Fair Mall"
+  },
+  {
+    "id": 299,
+    "name": "East & Market"
+  },
+  {
+    "id": 300,
+    "name": "East & London"
+  },
+  {
+    "id": 301,
+    "name": "County & Renfrew"
+  },
+  {
+    "id": 302,
+    "name": "County & Prescot"
+  },
+  {
+    "id": 303,
+    "name": "County & Wentworth"
+  },
+  {
+    "id": 304,
+    "name": "County & Brant"
+  },
+  {
+    "id": 305,
+    "name": "County & York"
+  },
+  {
+    "id": 306,
+    "name": "County & 500s Block"
+  },
+  {
+    "id": 307,
+    "name": "Wardrope & County"
+  },
+  {
+    "id": 308,
+    "name": "Wardrope & Castlegreen"
+  },
+  {
+    "id": 309,
+    "name": "Superior View Office"
+  },
+  {
+    "id": 310,
+    "name": "Castlegreen & 100s Block"
+  },
+  {
+    "id": 311,
+    "name": "Castlegreen & 1300s Block"
+  },
+  {
+    "id": 312,
+    "name": "Castlegreen & 900s Block"
+  },
+  {
+    "id": 313,
+    "name": "Castlegreen & 800s Block"
+  },
+  {
+    "id": 314,
+    "name": "Castlegreen & 600s Block"
+  },
+  {
+    "id": 315,
+    "name": "Castlegreen & Superiorview"
+  },
+  {
+    "id": 316,
+    "name": "Superiorview & 100s Block"
+  },
+  {
+    "id": 317,
+    "name": "Superiorview & Wardrope"
+  },
+  {
+    "id": 318,
+    "name": "Wardrope & 200s Block"
+  },
+  {
+    "id": 319,
+    "name": "Wardrope & Onion Lake"
+  },
+  {
+    "id": 320,
+    "name": "Wardrope & Glengary"
+  },
+  {
+    "id": 321,
+    "name": "Wardrope & County"
+  },
+  {
+    "id": 322,
+    "name": "Wardrope & 500s Block"
+  },
+  {
+    "id": 323,
+    "name": "Wardrope & Market St."
+  },
+  {
+    "id": 324,
+    "name": "Hilldale & Wardrope"
+  },
+  {
+    "id": 325,
+    "name": "Hilldale & Downing"
+  },
+  {
+    "id": 326,
+    "name": "Hilldale & 100s Block"
+  },
+  {
+    "id": 327,
+    "name": "Piccadilly & Walkover"
+  },
+  {
+    "id": 328,
+    "name": "Walkover & Strand"
+  },
+  {
+    "id": 329,
+    "name": "Strand & Brittany"
+  },
+  {
+    "id": 330,
+    "name": "Strand & Windsor"
+  },
+  {
+    "id": 331,
+    "name": "Strand & Tokio"
+  },
+  {
+    "id": 332,
+    "name": "Valley & John St. Rd."
+  },
+  {
+    "id": 333,
+    "name": "John St. Rd. & Chercover"
+  },
+  {
+    "id": 334,
+    "name": "John St. Rd. & Biloski"
+  },
+  {
+    "id": 335,
+    "name": "John St. Rd. & Moore"
+  },
+  {
+    "id": 336,
+    "name": "Woodcrest & John St. Rd."
+  },
+  {
+    "id": 337,
+    "name": "Woodcrest & Hutton Park"
+  },
+  {
+    "id": 338,
+    "name": "Woodcrest & Longbow"
+  },
+  {
+    "id": 339,
+    "name": "Pioneer & Woodcrest"
+  },
+  {
+    "id": 340,
+    "name": "Pioneer & Nottingham"
+  },
+  {
+    "id": 341,
+    "name": "Sherwood & Valley"
+  },
+  {
+    "id": 342,
+    "name": "Sherwood & 200s Block"
+  },
+  {
+    "id": 343,
+    "name": "Sherwood & Dawson"
+  },
+  {
+    "id": 344,
+    "name": "Dawson & Masters"
+  },
+  {
+    "id": 345,
+    "name": "Dawson & Piccadilly"
+  },
+  {
+    "id": 346,
+    "name": "Dawson & Regina"
+  },
+  {
+    "id": 347,
+    "name": "Red River & Picton"
+  },
+  {
+    "id": 348,
+    "name": "Red River & Junot"
+  },
+  {
+    "id": 349,
+    "name": "Red River & Clarkson"
+  },
+  {
+    "id": 350,
+    "name": "Red River & Algonquin"
+  },
+  {
+    "id": 351,
+    "name": "Red River & Kenogami"
+  },
+  {
+    "id": 352,
+    "name": "Red River & Hodge"
+  },
+  {
+    "id": 353,
+    "name": "Red River & Marlborough"
+  },
+  {
+    "id": 354,
+    "name": "Red River & McKibbin"
+  },
+  {
+    "id": 355,
+    "name": "Red River & Hill"
+  },
+  {
+    "id": 356,
+    "name": "Red River & Summit"
+  },
+  {
+    "id": 357,
+    "name": "Red River & St. Patrick's Square"
+  },
+  {
+    "id": 358,
+    "name": "Faculty of Law"
+  },
+  {
+    "id": 359,
+    "name": "Red River & Algoma"
+  },
+  {
+    "id": 360,
+    "name": "Pearl & Court"
+  },
+  {
+    "id": 361,
+    "name": "Pearl & Algoma"
+  },
+  {
+    "id": 362,
+    "name": "John & McKibbin"
+  },
+  {
+    "id": 363,
+    "name": "John & Marlborough"
+  },
+  {
+    "id": 364,
+    "name": "John & Rockwood"
+  },
+  {
+    "id": 365,
+    "name": "John & Kenogami"
+  },
+  {
+    "id": 366,
+    "name": "John & Alder"
+  },
+  {
+    "id": 367,
+    "name": "John & Anten"
+  },
+  {
+    "id": 368,
+    "name": "Clarkson & Juniper"
+  },
+  {
+    "id": 369,
+    "name": "Windsor & Clarkson"
+  },
+  {
+    "id": 370,
+    "name": "Windsor & Junot"
+  },
+  {
+    "id": 371,
+    "name": "John & Sequoia"
+  },
+  {
+    "id": 372,
+    "name": "John & Clarkson"
+  },
+  {
+    "id": 373,
+    "name": "John & Anten"
+  },
+  {
+    "id": 374,
+    "name": "John & Balmoral"
+  },
+  {
+    "id": 375,
+    "name": "Balmoral & Andrew"
+  },
+  {
+    "id": 376,
+    "name": "Balmoral & Hollylane"
+  },
+  {
+    "id": 377,
+    "name": "Oliver & Langworthy"
+  },
+  {
+    "id": 378,
+    "name": "Oliver & McBean"
+  },
+  {
+    "id": 379,
+    "name": "Oliver & Rupert"
+  },
+  {
+    "id": 380,
+    "name": "Algoma & St. George"
+  },
+  {
+    "id": 381,
+    "name": "Algoma & Harrington"
+  },
+  {
+    "id": 382,
+    "name": "River & Farrand"
+  },
+  {
+    "id": 383,
+    "name": "River & College"
+  },
+  {
+    "id": 384,
+    "name": "River & Balsam"
+  },
+  {
+    "id": 385,
+    "name": "River & High"
+  },
+  {
+    "id": 386,
+    "name": "River & Hill"
+  },
+  {
+    "id": 387,
+    "name": "River & Madeline"
+  },
+  {
+    "id": 388,
+    "name": "River & Rockwood"
+  },
+  {
+    "id": 389,
+    "name": "River & Junot"
+  },
+  {
+    "id": 390,
+    "name": "Junot & McComber"
+  },
+  {
+    "id": 391,
+    "name": "Junot & Red River"
+  },
+  {
+    "id": 392,
+    "name": "Junot & Walkover"
+  },
+  {
+    "id": 393,
+    "name": "Junot & Windsor"
+  },
+  {
+    "id": 394,
+    "name": "Golf Links & Fairbank"
+  },
+  {
+    "id": 395,
+    "name": "Golf Links & Crystal"
+  },
+  {
+    "id": 396,
+    "name": "Golf Links & Riviera"
+  },
+  {
+    "id": 397,
+    "name": "Golf Links & Sunrise"
+  },
+  {
+    "id": 398,
+    "name": "Balmoral & Academy"
+  },
+  {
+    "id": 399,
+    "name": "Balmoral & Beverly"
+  },
+  {
+    "id": 400,
+    "name": "Central & Tungsten"
+  },
+  {
+    "id": 401,
+    "name": "Central & Carrick"
+  },
+  {
+    "id": 402,
+    "name": "Central & Memorial"
+  },
+  {
+    "id": 403,
+    "name": "Arthur & Archibald"
+  },
+  {
+    "id": 404,
+    "name": "Arthur & Vickers"
+  },
+  {
+    "id": 405,
+    "name": "Arthur & Marks"
+  },
+  {
+    "id": 406,
+    "name": "Arthur & Selkirk"
+  },
+  {
+    "id": 407,
+    "name": "Arthur & Brunswick"
+  },
+  {
+    "id": 408,
+    "name": "Arthur & Tarbutt"
+  },
+  {
+    "id": 409,
+    "name": "Arthur & Ford"
+  },
+  {
+    "id": 410,
+    "name": "Arthur & 2000s Block"
+  },
+  {
+    "id": 411,
+    "name": "Victoria & 200s Block"
+  },
+  {
+    "id": 412,
+    "name": "Leland & Donald"
+  },
+  {
+    "id": 413,
+    "name": "Donald & 100s Block"
+  },
+  {
+    "id": 414,
+    "name": "Arthur & Brown"
+  },
+  {
+    "id": 415,
+    "name": "Arthur & Leland"
+  },
+  {
+    "id": 416,
+    "name": "Arthur & Euclid"
+  },
+  {
+    "id": 417,
+    "name": "Arthur & Mountdale"
+  },
+  {
+    "id": 418,
+    "name": "Arthur & Neebing"
+  },
+  {
+    "id": 419,
+    "name": "Arthur St. Marketplace"
+  },
+  {
+    "id": 420,
+    "name": "College Aviation Centre"
+  },
+  {
+    "id": 421,
+    "name": "Arthur & Sifton"
+  },
+  {
+    "id": 422,
+    "name": "Arthur & Valhalla Inn"
+  },
+  {
+    "id": 423,
+    "name": "Thunder Bay Airport"
+  },
+  {
+    "id": 424,
+    "name": "Arthur & Mountdale"
+  },
+  {
+    "id": 425,
+    "name": "Arthur & Euclid"
+  },
+  {
+    "id": 426,
+    "name": "Arthur & James"
+  },
+  {
+    "id": 427,
+    "name": "Arthur & 400s Block"
+  },
+  {
+    "id": 428,
+    "name": "Arthur & Brown"
+  },
+  {
+    "id": 429,
+    "name": "Arthur & Edward"
+  },
+  {
+    "id": 430,
+    "name": "Arthur & Ford"
+  },
+  {
+    "id": 431,
+    "name": "Arthur & Waterloo"
+  },
+  {
+    "id": 432,
+    "name": "Arthur & Vickers Park"
+  },
+  {
+    "id": 433,
+    "name": "Arthur & Franklin"
+  },
+  {
+    "id": 434,
+    "name": "Vickers & Cumming"
+  },
+  {
+    "id": 435,
+    "name": "Vickers & Dease"
+  },
+  {
+    "id": 436,
+    "name": "Vickers & Weigand"
+  },
+  {
+    "id": 437,
+    "name": "Northern & McKellar"
+  },
+  {
+    "id": 438,
+    "name": "Northern & Syndicate"
+  },
+  {
+    "id": 439,
+    "name": "Northern & May"
+  },
+  {
+    "id": 440,
+    "name": "Pacific & Wiley"
+  },
+  {
+    "id": 441,
+    "name": "Pacific & Robertson"
+  },
+  {
+    "id": 442,
+    "name": "Pacific & McMurray"
+  },
+  {
+    "id": 443,
+    "name": "Pacific & Simpson"
+  },
+  {
+    "id": 444,
+    "name": "McPherson & Connolly"
+  },
+  {
+    "id": 445,
+    "name": "Christie & McLeod"
+  },
+  {
+    "id": 446,
+    "name": "Christie & McIntosh"
+  },
+  {
+    "id": 447,
+    "name": "Christie & McTavish"
+  },
+  {
+    "id": 448,
+    "name": "Connolly & McLaughlin"
+  },
+  {
+    "id": 449,
+    "name": "McLeod & Pacific"
+  },
+  {
+    "id": 450,
+    "name": "Northern & Brodie"
+  },
+  {
+    "id": 451,
+    "name": "Northern & Syndicate"
+  },
+  {
+    "id": 452,
+    "name": "Balmoral & Forest"
+  },
+  {
+    "id": 453,
+    "name": "William & Health Unit"
+  },
+  {
+    "id": 454,
+    "name": "Balmoral & Sibley"
+  },
+  {
+    "id": 455,
+    "name": "Balmoral & Forest"
+  },
+  {
+    "id": 456,
+    "name": "Balmoral & Harold"
+  },
+  {
+    "id": 457,
+    "name": "Balmoral & Dease"
+  },
+  {
+    "id": 458,
+    "name": "Cameron & Bernard"
+  },
+  {
+    "id": 459,
+    "name": "Cameron & Marks"
+  },
+  {
+    "id": 460,
+    "name": "Cameron & Harold"
+  },
+  {
+    "id": 461,
+    "name": "Vickers & Cumming"
+  },
+  {
+    "id": 462,
+    "name": "Donald & Archibald"
+  },
+  {
+    "id": 463,
+    "name": "James & Gore"
+  },
+  {
+    "id": 464,
+    "name": "Montreal & Bailey"
+  },
+  {
+    "id": 465,
+    "name": "Montreal & Mountdale"
+  },
+  {
+    "id": 466,
+    "name": "Bombardier Lot 1"
+  },
+  {
+    "id": 467,
+    "name": "Bombardier Lot 2"
+  },
+  {
+    "id": 468,
+    "name": "Neebing & Montreal"
+  },
+  {
+    "id": 469,
+    "name": "Chippewa & Mountain"
+  },
+  {
+    "id": 470,
+    "name": "Chippewa & James"
+  },
+  {
+    "id": 471,
+    "name": "City Rd. & Chapmans"
+  },
+  {
+    "id": 472,
+    "name": "City Rd. & K&A"
+  },
+  {
+    "id": 473,
+    "name": "City Rd. & Back St."
+  },
+  {
+    "id": 474,
+    "name": "City Rd. & Mission Rd."
+  },
+  {
+    "id": 475,
+    "name": "Anemki & FWFN Office"
+  },
+  {
+    "id": 476,
+    "name": "Mission & City Rd."
+  },
+  {
+    "id": 477,
+    "name": "City Rd. & Back St."
+  },
+  {
+    "id": 478,
+    "name": "City Rd. & K&A"
+  },
+  {
+    "id": 479,
+    "name": "City Rd. & Chapmans"
+  },
+  {
+    "id": 480,
+    "name": "City Rd. & James"
+  },
+  {
+    "id": 481,
+    "name": "Chippewa & Mountain"
+  },
+  {
+    "id": 482,
+    "name": "Broadway & Cemetery"
+  },
+  {
+    "id": 483,
+    "name": "Broadway & Meryle"
+  },
+  {
+    "id": 484,
+    "name": "Broadway & Prokops"
+  },
+  {
+    "id": 485,
+    "name": "Broadway & 1500s Block"
+  },
+  {
+    "id": 486,
+    "name": "Broadway & Victor"
+  },
+  {
+    "id": 487,
+    "name": "Broadway & Community Ctr."
+  },
+  {
+    "id": 488,
+    "name": "Broadway & Daisy"
+  },
+  {
+    "id": 489,
+    "name": "Broadway & Glenwood"
+  },
+  {
+    "id": 490,
+    "name": "Broadway & Highland"
+  },
+  {
+    "id": 491,
+    "name": "Broadway & 1900s Block"
+  },
+  {
+    "id": 492,
+    "name": "Broadway & King"
+  },
+  {
+    "id": 493,
+    "name": "Fort William Historical Park"
+  },
+  {
+    "id": 494,
+    "name": "Broadway & Kerega"
+  },
+  {
+    "id": 495,
+    "name": "Broadway & Bowlker"
+  },
+  {
+    "id": 496,
+    "name": "Broadway & 2100s Block"
+  },
+  {
+    "id": 497,
+    "name": "Broadway & 22nd Side Rd."
+  },
+  {
+    "id": 498,
+    "name": "Broadway & 25th Side Rd."
+  },
+  {
+    "id": 499,
+    "name": "25th Side Rd. & Rosslyn"
+  },
+  {
+    "id": 500,
+    "name": "Rosslyn & Whitegates"
+  },
+  {
+    "id": 501,
+    "name": "Rosslyn & Tonkin"
+  },
+  {
+    "id": 502,
+    "name": "Rosslyn & 22nd Side Rd."
+  },
+  {
+    "id": 503,
+    "name": "Rosslyn & Piper"
+  },
+  {
+    "id": 504,
+    "name": "Rosslyn & 20th Side Rd."
+  },
+  {
+    "id": 505,
+    "name": "Rosslyn & Demeuron"
+  },
+  {
+    "id": 506,
+    "name": "Glenoah & Rosslyn"
+  },
+  {
+    "id": 507,
+    "name": "Lynda & Rosslyn"
+  },
+  {
+    "id": 508,
+    "name": "Rosslyn & Taylor"
+  },
+  {
+    "id": 509,
+    "name": "20th Side Rd. & Perozak St."
+  },
+  {
+    "id": 510,
+    "name": "20th Side Rd. & Otway"
+  },
+  {
+    "id": 511,
+    "name": "20th Side Rd. & Trotter"
+  },
+  {
+    "id": 512,
+    "name": "20th Side Rd. & Malibu"
+  },
+  {
+    "id": 513,
+    "name": "20th Side Rd. & Herrick"
+  },
+  {
+    "id": 514,
+    "name": "20th Side Rd. & Arthur"
+  },
+  {
+    "id": 515,
+    "name": "Arthur & Community Centre"
+  },
+  {
+    "id": 516,
+    "name": "Arthur & Garden"
+  },
+  {
+    "id": 517,
+    "name": "Arthur & 1600s Block"
+  },
+  {
+    "id": 518,
+    "name": "Arthur & Vanguard"
+  },
+  {
+    "id": 519,
+    "name": "Arthur & 15th Side Rd."
+  },
+  {
+    "id": 520,
+    "name": "Arthur & Brunetti"
+  },
+  {
+    "id": 521,
+    "name": "Arthur & 1300s Block"
+  },
+  {
+    "id": 522,
+    "name": "Bombardier Entrance"
+  },
+  {
+    "id": 523,
+    "name": "Montreal & Mountdale"
+  },
+  {
+    "id": 524,
+    "name": "Montreal & Bailey"
+  },
+  {
+    "id": 525,
+    "name": "Churchill & Edward"
+  },
+  {
+    "id": 526,
+    "name": "Churchill & Hemlock"
+  },
+  {
+    "id": 527,
+    "name": "Churchill & Sycamore"
+  },
+  {
+    "id": 528,
+    "name": "Churchill & James"
+  },
+  {
+    "id": 529,
+    "name": "Churchill & Champlain"
+  },
+  {
+    "id": 530,
+    "name": "Redwood & Churchill"
+  },
+  {
+    "id": 531,
+    "name": "Redwood & Mohawk"
+  },
+  {
+    "id": 532,
+    "name": "Redwood & Simon Fraser"
+  },
+  {
+    "id": 533,
+    "name": "Redwood & James"
+  },
+  {
+    "id": 534,
+    "name": "Redwood & University"
+  },
+  {
+    "id": 535,
+    "name": "Redwood & Sherbrooke"
+  },
+  {
+    "id": 536,
+    "name": "Redwood & Sherbrooke"
+  },
+  {
+    "id": 537,
+    "name": "Redwood & Limbrick"
+  },
+  {
+    "id": 538,
+    "name": "Redwood & James"
+  },
+  {
+    "id": 539,
+    "name": "Churchill & James"
+  },
+  {
+    "id": 540,
+    "name": "Churchill & Sycamore"
+  },
+  {
+    "id": 541,
+    "name": "Churchill & Hemlock"
+  },
+  {
+    "id": 542,
+    "name": "Churchill & Edward"
+  },
+  {
+    "id": 543,
+    "name": "Syndicate & Arthur"
+  },
+  {
+    "id": 544,
+    "name": "Syndicate & Ridgeway"
+  },
+  {
+    "id": 545,
+    "name": "Syndicate & Duncan"
+  },
+  {
+    "id": 546,
+    "name": "Syndicate & Vickers"
+  },
+  {
+    "id": 547,
+    "name": "Walsh & Catherine"
+  },
+  {
+    "id": 548,
+    "name": "Walsh & Marks"
+  },
+  {
+    "id": 549,
+    "name": "Walsh & Brunswick"
+  },
+  {
+    "id": 550,
+    "name": "Walsh & Hyde Park"
+  },
+  {
+    "id": 551,
+    "name": "Walsh & Tarbutt"
+  },
+  {
+    "id": 552,
+    "name": "Walsh & Kingsway"
+  },
+  {
+    "id": 553,
+    "name": "Walsh & Waterloo"
+  },
+  {
+    "id": 554,
+    "name": "Walsh & Ruskin"
+  },
+  {
+    "id": 555,
+    "name": "Walsh & Minto"
+  },
+  {
+    "id": 556,
+    "name": "Walsh & Edward"
+  },
+  {
+    "id": 557,
+    "name": "Walsh & Brown"
+  },
+  {
+    "id": 558,
+    "name": "Walsh & Leland"
+  },
+  {
+    "id": 559,
+    "name": "Walsh & Holly"
+  },
+  {
+    "id": 560,
+    "name": "James & Walsh"
+  },
+  {
+    "id": 561,
+    "name": "James & Isabella"
+  },
+  {
+    "id": 562,
+    "name": "James & Mini-Queens Park"
+  },
+  {
+    "id": 563,
+    "name": "James & Arthur"
+  },
+  {
+    "id": 564,
+    "name": "James & Donald"
+  },
+  {
+    "id": 565,
+    "name": "James & Victoria"
+  },
+  {
+    "id": 566,
+    "name": "James & Riverview"
+  },
+  {
+    "id": 567,
+    "name": "James & Parkway"
+  },
+  {
+    "id": 568,
+    "name": "James & Churchill"
+  },
+  {
+    "id": 569,
+    "name": "James & 400s Block"
+  },
+  {
+    "id": 570,
+    "name": "James & McGill"
+  },
+  {
+    "id": 571,
+    "name": "James & Vale"
+  },
+  {
+    "id": 572,
+    "name": "James & Limbrick"
+  },
+  {
+    "id": 573,
+    "name": "James & Lambton"
+  },
+  {
+    "id": 574,
+    "name": "James & Sheridan"
+  },
+  {
+    "id": 575,
+    "name": "James & Conestoga"
+  },
+  {
+    "id": 576,
+    "name": "James & Brescia"
+  },
+  {
+    "id": 577,
+    "name": "William & Balmoral"
+  },
+  {
+    "id": 578,
+    "name": "Balmoral & Hewitson"
+  },
+  {
+    "id": 579,
+    "name": "Alloy & Cobalt"
+  },
+  {
+    "id": 580,
+    "name": "Alloy & Tungsten"
+  },
+  {
+    "id": 581,
+    "name": "Tungsten & Alloy"
+  },
+  {
+    "id": 582,
+    "name": "Tungsten & Cobalt"
+  },
+  {
+    "id": 583,
+    "name": "Central & Squire"
+  },
+  {
+    "id": 584,
+    "name": "Central & Carrick"
+  },
+  {
+    "id": 585,
+    "name": "Central & Alloy"
+  },
+  {
+    "id": 586,
+    "name": "Central & 700s Block"
+  },
+  {
+    "id": 587,
+    "name": "Balmoral & Alloy"
+  },
+  {
+    "id": 588,
+    "name": "James & Brescia"
+  },
+  {
+    "id": 589,
+    "name": "James & Sheridan"
+  },
+  {
+    "id": 590,
+    "name": "James & Ryerson"
+  },
+  {
+    "id": 591,
+    "name": "James & Lambton"
+  },
+  {
+    "id": 592,
+    "name": "James & Limbrick"
+  },
+  {
+    "id": 593,
+    "name": "James & Vale"
+  },
+  {
+    "id": 594,
+    "name": "James & McGill"
+  },
+  {
+    "id": 595,
+    "name": "James & 400s Block"
+  },
+  {
+    "id": 596,
+    "name": "James & Churchill"
+  },
+  {
+    "id": 597,
+    "name": "James & Parkway"
+  },
+  {
+    "id": 598,
+    "name": "James & Victoria"
+  },
+  {
+    "id": 599,
+    "name": "James & Donald"
+  },
+  {
+    "id": 600,
+    "name": "James & Arthur"
+  },
+  {
+    "id": 601,
+    "name": "James & Mini-Queens Park"
+  },
+  {
+    "id": 602,
+    "name": "James & Walsh"
+  },
+  {
+    "id": 603,
+    "name": "Walsh & Linwood"
+  },
+  {
+    "id": 604,
+    "name": "Walsh & Brown"
+  },
+  {
+    "id": 605,
+    "name": "Walsh & Edward"
+  },
+  {
+    "id": 606,
+    "name": "Walsh & Grey"
+  },
+  {
+    "id": 607,
+    "name": "Walsh & Ruskin"
+  },
+  {
+    "id": 608,
+    "name": "Walsh & Hall"
+  },
+  {
+    "id": 609,
+    "name": "Walsh & Kelly"
+  },
+  {
+    "id": 610,
+    "name": "Walsh & Mortimer"
+  },
+  {
+    "id": 611,
+    "name": "Walsh & Hyde Park"
+  },
+  {
+    "id": 612,
+    "name": "Walsh & Brunswick"
+  },
+  {
+    "id": 613,
+    "name": "Walsh & Marks"
+  },
+  {
+    "id": 614,
+    "name": "Walsh & Syndicate"
+  },
+  {
+    "id": 615,
+    "name": "Syndicate & Vickers"
+  },
+  {
+    "id": 616,
+    "name": "Syndicate & Duncan"
+  },
+  {
+    "id": 617,
+    "name": "Syndicate & Ridgeway"
+  },
+  {
+    "id": 618,
+    "name": "Syndicate & Arthur"
+  },
+  {
+    "id": 619,
+    "name": "May & Leith"
+  },
+  {
+    "id": 620,
+    "name": "May & Cameron"
+  },
+  {
+    "id": 621,
+    "name": "May & Dease"
+  },
+  {
+    "id": 622,
+    "name": "May & Ogden"
+  },
+  {
+    "id": 623,
+    "name": "May & Northern"
+  },
+  {
+    "id": 624,
+    "name": "May & William"
+  },
+  {
+    "id": 625,
+    "name": "May & Isabel"
+  },
+  {
+    "id": 626,
+    "name": "Memorial & Intercity Mall"
+  },
+  {
+    "id": 627,
+    "name": "Memorial & Dunlop"
+  },
+  {
+    "id": 628,
+    "name": "Memorial & 13th"
+  },
+  {
+    "id": 629,
+    "name": "Memorial & 11th"
+  },
+  {
+    "id": 630,
+    "name": "Memorial & Sixth"
+  },
+  {
+    "id": 631,
+    "name": "Memorial & Fourth"
+  },
+  {
+    "id": 632,
+    "name": "Memorial & Third"
+  },
+  {
+    "id": 633,
+    "name": "Memorial & First"
+  },
+  {
+    "id": 634,
+    "name": "Memorial & High"
+  },
+  {
+    "id": 635,
+    "name": "Memorial & Lisgar"
+  },
+  {
+    "id": 636,
+    "name": "Memorial & Queen"
+  },
+  {
+    "id": 637,
+    "name": "Tungsten & Lithium"
+  },
+  {
+    "id": 638,
+    "name": "Jasper & Glacier Ridge"
+  },
+  {
+    "id": 639,
+    "name": "Jasper & HAGI"
+  },
+  {
+    "id": 640,
+    "name": "Balmoral & Beverly"
+  },
+  {
+    "id": 641,
+    "name": "Balmoral & Academy"
+  },
+  {
+    "id": 642,
+    "name": "Golf Links & Sunrise"
+  },
+  {
+    "id": 643,
+    "name": "Golf Links & Riviera"
+  },
+  {
+    "id": 644,
+    "name": "Golf Links & Crystal"
+  },
+  {
+    "id": 645,
+    "name": "Golf Links & Anten"
+  },
+  {
+    "id": 646,
+    "name": "Junot & Windsor"
+  },
+  {
+    "id": 647,
+    "name": "Junot & Walkover"
+  },
+  {
+    "id": 648,
+    "name": "Junot & Red River"
+  },
+  {
+    "id": 649,
+    "name": "Junot & Melon"
+  },
+  {
+    "id": 650,
+    "name": "River & Whalen"
+  },
+  {
+    "id": 651,
+    "name": "River & Rockwood"
+  },
+  {
+    "id": 652,
+    "name": "River & Madeline"
+  },
+  {
+    "id": 653,
+    "name": "River & Hill"
+  },
+  {
+    "id": 654,
+    "name": "River & High"
+  },
+  {
+    "id": 655,
+    "name": "River & Knight"
+  },
+  {
+    "id": 656,
+    "name": "River & College"
+  },
+  {
+    "id": 657,
+    "name": "River & Farrand"
+  },
+  {
+    "id": 658,
+    "name": "Algoma & Dufferin"
+  },
+  {
+    "id": 659,
+    "name": "Algoma & Bay"
+  },
+  {
+    "id": 660,
+    "name": "Algoma & Cornwall"
+  },
+  {
+    "id": 661,
+    "name": "Algoma & John"
+  },
+  {
+    "id": 662,
+    "name": "Memorial & Queen"
+  },
+  {
+    "id": 663,
+    "name": "Memorial & Lisgar"
+  },
+  {
+    "id": 664,
+    "name": "Memorial & High"
+  },
+  {
+    "id": 665,
+    "name": "Memorial & Second"
+  },
+  {
+    "id": 666,
+    "name": "Memorial & Sixth"
+  },
+  {
+    "id": 667,
+    "name": "Memorial & Squire"
+  },
+  {
+    "id": 668,
+    "name": "Memorial & 10th"
+  },
+  {
+    "id": 669,
+    "name": "Memorial & 13th"
+  },
+  {
+    "id": 670,
+    "name": "Memorial & Dunlop"
+  },
+  {
+    "id": 671,
+    "name": "Memorial & Isabel"
+  },
+  {
+    "id": 672,
+    "name": "May & William"
+  },
+  {
+    "id": 673,
+    "name": "May & Northern"
+  },
+  {
+    "id": 674,
+    "name": "May & Southern"
+  },
+  {
+    "id": 675,
+    "name": "May & Dease"
+  },
+  {
+    "id": 676,
+    "name": "May & Bethune"
+  },
+  {
+    "id": 677,
+    "name": "Algoma & Pearl"
+  },
+  {
+    "id": 678,
+    "name": "John & Clarkson"
+  },
+  {
+    "id": 679,
+    "name": "John & Junot"
+  },
+  {
+    "id": 680,
+    "name": "James & Gordon"
+  },
+  {
+    "id": 681,
+    "name": "Camelot & Court"
+  },
+  {
+    "id": 682,
+    "name": "Balsam & Simcoe"
+  },
+  {
+    "id": 683,
+    "name": "High & Theresa"
+  },
+  {
+    "id": 684,
+    "name": "Golf Links & Harbour Xpress"
+  },
+  {
+    "id": 685,
+    "name": "Golf Links & Central"
+  },
+  {
+    "id": 686,
+    "name": "May & Miles"
+  },
+  {
+    "id": 687,
+    "name": "Simpson & George"
+  },
+  {
+    "id": 688,
+    "name": "Simpson & Victoria"
+  },
+  {
+    "id": 689,
+    "name": "Miles & Courthouse"
+  },
+  {
+    "id": 690,
+    "name": "Simpson & Miles"
+  },
+  {
+    "id": 691,
+    "name": "Vickers & Cameron"
+  },
+  {
+    "id": 692,
+    "name": "Fort William Clinic"
+  },
+  {
+    "id": 693,
+    "name": "Miles & Courthouse"
+  },
+  {
+    "id": 694,
+    "name": "May & George"
+  },
+  {
+    "id": 695,
+    "name": "Cameron & Harold"
+  },
+  {
+    "id": 696,
+    "name": "Cameron & Norah"
+  },
+  {
+    "id": 697,
+    "name": "Balmoral & Cameron"
+  },
+  {
+    "id": 698,
+    "name": "Balmoral & Norah"
+  },
+  {
+    "id": 699,
+    "name": "Donald & Harold"
+  },
+  {
+    "id": 700,
+    "name": "Donald & Harold"
+  },
+  {
+    "id": 701,
+    "name": "Court & Manitou"
+  },
+  {
+    "id": 702,
+    "name": "John & Machar"
+  },
+  {
+    "id": 703,
+    "name": "Northern & CLE"
+  },
+  {
+    "id": 704,
+    "name": "Hogarth Riverview Manor"
+  },
+  {
+    "id": 705,
+    "name": "Sister Margaret Smith"
+  },
+  {
+    "id": 706,
+    "name": "Vickers & Weigand"
+  },
+  {
+    "id": 707,
+    "name": "Vickers & Cameron"
+  },
+  {
+    "id": 708,
+    "name": "Junot & John"
+  },
+  {
+    "id": 709,
+    "name": "Junot & John"
+  },
+  {
+    "id": 710,
+    "name": "Mission & Back"
+  },
+  {
+    "id": 711,
+    "name": "FWFN Community Centre"
+  },
+  {
+    "id": 712,
+    "name": "Anemki & Wolf"
+  },
+  {
+    "id": 713,
+    "name": "Pearl & Court"
+  },
+  {
+    "id": 714,
+    "name": "Algoma & Wolseley"
+  },
+  {
+    "id": 715,
+    "name": "Shuniah & Ruttan"
+  },
+  {
+    "id": 716,
+    "name": "Shuniah & Albany"
+  },
+  {
+    "id": 717,
+    "name": "Balsam & Parsons"
+  },
+  {
+    "id": 718,
+    "name": "North Star Air"
+  },
+  {
+    "id": 719,
+    "name": "Cumberland & Nelson"
+  },
+  {
+    "id": 720,
+    "name": "Oliver & Hill"
+  },
+  {
+    "id": 721,
+    "name": "Oliver & Ray"
+  },
+  {
+    "id": 722,
+    "name": "Oliver & Frankwood"
+  },
+  {
+    "id": 723,
+    "name": "Oliver & Golf Links"
+  },
+  {
+    "id": 724,
+    "name": "Beverly & Oasis"
+  },
+  {
+    "id": 725,
+    "name": "Beverly & Fulton"
+  },
+  {
+    "id": 726,
+    "name": "Hawker & Arthur"
+  },
+  {
+    "id": 727,
+    "name": "Transit garage"
+  },
+  {
+    "id": 728,
+    "name": "Transit garage"
+  }
+]
