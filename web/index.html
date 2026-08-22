@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TransitEngine - Live Bus Directions & Real-Time Tracking</title>
+  <title>Transit Guide - Live Bus Tracker & Trip Directions</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,11 +14,8 @@
         extend: {
           colors: {
             brand: {
-              50: '#eef2ff',
-              100: '#e0e7ff',
               500: '#6366f1',
               600: '#4f46e5',
-              700: '#4338ca',
             }
           }
         }
@@ -34,7 +31,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2.2">
 </head>
 <body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
 
@@ -46,26 +43,21 @@
       </div>
       <div>
         <div class="flex items-center space-x-2">
-          <h1 class="text-lg font-bold tracking-tight text-white">Transit<span class="text-indigo-400">Engine</span></h1>
+          <h1 class="text-lg font-bold tracking-tight text-white">Transit<span class="text-indigo-400">Guide</span></h1>
           <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Live Bus Tracker</span>
+            <span>Live GPS Active</span>
           </span>
         </div>
-        <p class="text-xs text-slate-400">Instant Bus Schedules, Transfer Directions & Live GPS Tracking</p>
+        <p class="text-xs text-slate-400">Real-time Bus Times, Step-by-Step Directions & Live Tracking</p>
       </div>
     </div>
 
-    <!-- Live Status Indicators -->
-    <div class="flex items-center space-x-4">
-      <div id="live-telemetry-badge" class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-medium text-slate-300">
+    <!-- Live Status -->
+    <div class="flex items-center space-x-3">
+      <div id="live-telemetry-badge" class="flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-medium text-slate-300">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span id="telemetry-status-text">15 Live Buses Moving</span>
-      </div>
-
-      <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs text-slate-300">
-        <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
-        <span>McRAPTOR: <strong id="avg-latency-display" class="text-white mono">&lt; 1 ms</strong></span>
+        <span id="telemetry-status-text">15 Live Buses on Roads</span>
       </div>
     </div>
   </header>
@@ -80,15 +72,15 @@
       <div class="flex border-b border-slate-800 px-4 pt-3 bg-slate-900/50">
         <button id="tab-planner-btn" onclick="switchTab('planner')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition">
           <i data-lucide="navigation" class="w-4 h-4"></i>
-          <span>Get Directions</span>
+          <span>Plan Trip</span>
         </button>
         <button id="tab-fleet-btn" onclick="switchTab('fleet')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
           <i data-lucide="map-pin" class="w-4 h-4"></i>
-          <span>Nearby Buses</span>
+          <span>Live Buses</span>
         </button>
-        <button id="tab-metrics-btn" onclick="switchTab('metrics')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
-          <i data-lucide="activity" class="w-4 h-4"></i>
-          <span>Engine Stats</span>
+        <button id="tab-places-btn" onclick="switchTab('places')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          <i data-lucide="star" class="w-4 h-4"></i>
+          <span>Key Places</span>
         </button>
       </div>
 
@@ -96,7 +88,7 @@
       <div id="tab-planner" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3.5">
         
         <!-- Search Input Box -->
-        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
+        <div id="search-box-card" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
           
           <!-- Origin Picker -->
           <div class="space-y-1">
@@ -111,7 +103,7 @@
               </button>
             </label>
             <div class="relative">
-              <input type="text" id="source-input" value="Edward & Gordon" placeholder="Type current address or stop..." autocomplete="off"
+              <input type="text" id="source-input" value="Edward & Gordon" placeholder="Where are you starting from?" autocomplete="off"
                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
               <div id="source-results" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto hidden"></div>
             </div>
@@ -119,7 +111,7 @@
 
           <!-- Swap Button -->
           <div class="flex justify-center -my-1">
-            <button onclick="swapStops()" title="Swap Origin and Destination" class="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition border border-slate-700 shadow">
+            <button onclick="swapStops()" title="Swap Starting Point and Destination" class="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition border border-slate-700 shadow">
               <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
             </button>
           </div>
@@ -133,7 +125,7 @@
               </span>
             </label>
             <div class="relative">
-              <input type="text" id="target-input" value="Thunder Bay Regional Hospital" placeholder="Type destination stop or landmark..." autocomplete="off"
+              <input type="text" id="target-input" value="Thunder Bay Regional Hospital" placeholder="Where do you want to go?" autocomplete="off"
                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
               <div id="target-results" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto hidden"></div>
             </div>
@@ -180,21 +172,21 @@
           <!-- Submit Action -->
           <button onclick="calculateRoute()" id="search-route-btn" class="w-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:opacity-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2 transition">
             <i data-lucide="compass" class="w-4 h-4 text-white"></i>
-            <span>Find Best Bus Options</span>
+            <span>Find Best Bus Routes</span>
           </button>
         </div>
 
-        <!-- Query Results Container -->
+        <!-- Query Results & Active Journey Container -->
         <div id="route-results-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
           <!-- Populated dynamically by app.js -->
         </div>
 
       </div>
 
-      <!-- Tab 2: Live Nearby Fleet -->
+      <!-- Tab 2: Live Nearby Buses -->
       <div id="tab-fleet" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3 hidden">
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Live Active Buses (<span id="fleet-count">0</span>)</h2>
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Live Buses on City Roads (<span id="fleet-count">0</span>)</h2>
           <span class="text-xs text-emerald-400 flex items-center space-x-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
             <span>Real-time GPS</span>
@@ -205,42 +197,53 @@
         </div>
       </div>
 
-      <!-- Tab 3: Engine Metrics -->
-      <div id="tab-metrics" class="flex-1 flex flex-col overflow-hidden p-4 space-y-4 hidden">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Core Routing Engine</h2>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
-            <span class="text-xs text-slate-400 font-medium">Algorithm</span>
-            <p class="text-base font-bold text-indigo-400">Multi-Modal RAPTOR</p>
-            <span class="text-[10px] text-slate-500">Zero-copy graph scans</span>
+      <!-- Tab 3: Key Places Quick Select -->
+      <div id="tab-places" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3 hidden">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Popular Destinations</h2>
+        <div class="space-y-2">
+          <div onclick="setQuickDestination('Thunder Bay Regional Hospital', 184)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="p-2 rounded-lg bg-rose-500/20 text-rose-400">🏥</span>
+              <div>
+                <h4 class="text-sm font-bold text-white">Thunder Bay Regional Hospital</h4>
+                <p class="text-xs text-slate-400">Oliver Road Medical Campus</p>
+              </div>
+            </div>
+            <span class="text-xs text-indigo-400 font-semibold">Select</span>
           </div>
 
-          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
-            <span class="text-xs text-slate-400 font-medium">Walking Footpaths</span>
-            <p class="text-base font-bold text-cyan-400 mono">7,904</p>
-            <span class="text-[10px] text-slate-500">Spatial arcs (&lt; 500m)</span>
+          <div onclick="setQuickDestination('Confederation College', 190)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">🎓</span>
+              <div>
+                <h4 class="text-sm font-bold text-white">Confederation College</h4>
+                <p class="text-xs text-slate-400">Main Campus Transit Terminal</p>
+              </div>
+            </div>
+            <span class="text-xs text-indigo-400 font-semibold">Select</span>
           </div>
 
-          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
-            <span class="text-xs text-slate-400 font-medium">Active Stops</span>
-            <p class="text-base font-bold text-white mono" id="metric-stops-count">729</p>
-            <span class="text-[10px] text-slate-500">Thunder Bay Transit</span>
+          <div onclick="setQuickDestination('Waterfront Terminal', 0)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">⚓</span>
+              <div>
+                <h4 class="text-sm font-bold text-white">Waterfront Transit Hub</h4>
+                <p class="text-xs text-slate-400">Downtown North Core</p>
+              </div>
+            </div>
+            <span class="text-xs text-indigo-400 font-semibold">Select</span>
           </div>
 
-          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
-            <span class="text-xs text-slate-400 font-medium">Scheduled Departures</span>
-            <p class="text-base font-bold text-white mono" id="metric-st-count">161,504</p>
-            <span class="text-[10px] text-slate-500">GTFS Timetable Records</span>
+          <div onclick="setQuickDestination('City Hall Terminal', 200)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="p-2 rounded-lg bg-amber-500/20 text-amber-400">🏛</span>
+              <div>
+                <h4 class="text-sm font-bold text-white">City Hall Terminal</h4>
+                <p class="text-xs text-slate-400">Downtown South Core</p>
+              </div>
+            </div>
+            <span class="text-xs text-indigo-400 font-semibold">Select</span>
           </div>
-        </div>
-
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold uppercase text-slate-400">Live GPS & Delay Ingestion</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">Active</span>
-          </div>
-          <p class="text-xs text-slate-400">Real-time vehicle position stream with dynamic delay injection and ETA estimation.</p>
         </div>
       </div>
 
@@ -254,10 +257,10 @@
       <div id="tracking-hud" class="absolute top-4 left-4 right-4 sm:left-auto sm:right-4 z-[400] bg-slate-900/95 border-2 border-cyan-500/50 backdrop-blur-xl p-4 rounded-2xl shadow-2xl max-w-sm hidden">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-2.5">
           <div class="flex items-center space-x-2">
-            <span id="hud-bus-pill" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-indigo-600 text-white">BUS 5</span>
+            <span id="hud-bus-pill" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-indigo-600 text-white">BUS 8</span>
             <div>
               <h4 id="hud-bus-title" class="text-xs font-bold text-white leading-tight">Live Tracking</h4>
-              <span id="hud-bus-id" class="text-[10px] text-slate-400 font-mono">Vehicle BUS-204</span>
+              <span id="hud-bus-id" class="text-[10px] text-slate-400 font-mono">Approaching Your Stop</span>
             </div>
           </div>
           <button onclick="stopTrackingBus()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
@@ -267,7 +270,7 @@
 
         <div class="grid grid-cols-3 gap-2 text-center">
           <div class="bg-slate-950 border border-slate-800/80 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">ETA to You</span>
+            <span class="text-[10px] text-slate-400 block">Arriving In</span>
             <span id="hud-eta" class="text-sm font-black text-cyan-400 mono">~3 min</span>
           </div>
           <div class="bg-slate-950 border border-slate-800/80 p-2 rounded-xl">
@@ -275,23 +278,23 @@
             <span id="hud-dist" class="text-sm font-black text-white mono">640m</span>
           </div>
           <div class="bg-slate-950 border border-slate-800/80 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Live Status</span>
+            <span class="text-[10px] text-slate-400 block">Status</span>
             <span id="hud-status" class="text-[11px] font-bold text-emerald-400">On Time</span>
           </div>
         </div>
 
         <div class="mt-2.5 pt-2 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-          <span>Speed: <strong id="hud-speed" class="text-white mono">36 km/h</strong></span>
+          <span>Speed: <strong id="hud-speed" class="text-white mono">35 km/h</strong></span>
           <span class="text-emerald-400 flex items-center space-x-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Live GPS Lock</span>
+            <span>Live GPS</span>
           </span>
         </div>
       </div>
 
       <!-- Floating Map Overlays -->
       <div class="absolute top-4 right-4 z-[390] flex flex-col space-y-2">
-        <button onclick="centerMapOnTransit()" title="Center Network" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
+        <button onclick="centerMapOnTransit()" title="Center Map" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
           <i data-lucide="crosshair" class="w-4 h-4"></i>
         </button>
         <button onclick="toggleAllStops()" id="toggle-stops-btn" title="Toggle Stop Pins" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
@@ -302,11 +305,11 @@
       <!-- Floating Live Ticker Banner -->
       <div class="absolute bottom-4 left-4 right-4 sm:left-[500px] sm:right-6 z-[390] bg-slate-900/90 backdrop-blur border border-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center justify-between text-xs">
         <div class="flex items-center space-x-3 truncate">
-          <span class="flex items-center space-x-1.5 text-indigo-400 font-semibold shrink-0">
-            <i data-lucide="radio" class="w-3.5 h-3.5"></i>
-            <span>LIVE FLEET:</span>
+          <span class="flex items-center space-x-1.5 text-emerald-400 font-semibold shrink-0">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>LIVE BUS FEED:</span>
           </span>
-          <span id="live-ticker-text" class="text-slate-300 truncate">Interpolating real-time GPS locations for transit routes...</span>
+          <span id="live-ticker-text" class="text-slate-300 truncate">Tracking real-time buses in Thunder Bay...</span>
         </div>
         <span class="text-slate-500 mono shrink-0 hidden md:inline" id="live-clock">00:00:00</span>
       </div>
@@ -321,7 +324,7 @@
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div>
           <h3 id="modal-stop-name" class="text-base font-bold text-white">Stop Name</h3>
-          <span id="modal-stop-id" class="text-xs text-slate-400 mono">Stop ID: 0</span>
+          <span id="modal-stop-id" class="text-xs text-slate-400 mono">Stop Schedule</span>
         </div>
         <button onclick="closeDeparturesModal()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -330,7 +333,7 @@
 
       <div class="space-y-2">
         <div class="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          <span>Upcoming Buses at this Stop</span>
+          <span>Upcoming Buses</span>
           <span>Status</span>
         </div>
         <div id="modal-departures-list" class="max-h-60 overflow-y-auto space-y-2 pr-1"></div>
@@ -345,6 +348,6 @@
   </div>
 
   <!-- App JavaScript Logic -->
-  <script src="app.js"></script>
+  <script src="app.js?v=2.2"></script>
 </body>
 </html>

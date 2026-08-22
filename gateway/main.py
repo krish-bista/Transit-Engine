@@ -10,13 +10,13 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from gtfs_data import GTFSDataManager
+from gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
 from raptor_engine import RaptorEngine
 
 app = FastAPI(
-    title="High-Performance Transit Routing Engine API",
-    description="Full-stack Passenger-Centric Transit Router with Walking Transfers, Live Bus Tracking, and Multi-Departure Schedules.",
-    version="2.0.0"
+    title="City Transit Guide API",
+    description="Real-Time Passenger Transit Router with Step-by-Step Directions and Live Bus Tracking.",
+    version="2.1.0"
 )
 
 # Enable CORS
@@ -83,7 +83,7 @@ def serve_root():
     index_path = os.path.join(WEB_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"system": "Transit Engine", "version": "2.0.0", "status": "online"}
+    return {"system": "Transit Guide", "version": "2.1.0", "status": "online"}
 
 @app.get("/styles.css", include_in_schema=False)
 def serve_styles():
@@ -97,7 +97,6 @@ def serve_app_js():
 def health():
     return {
         "status": "healthy",
-        "engine": "McRAPTOR (Multi-Modal + Footpaths)",
         "stops_count": len(data_manager.stops),
         "routes_count": len(raptor_engine.routes),
         "walking_footpaths": sum(len(fps) for fps in raptor_engine.footpaths.values()),
@@ -135,7 +134,7 @@ def get_routes():
 @app.get("/api/stops/{stop_id}/departures")
 def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
     if time_sec is None:
-        time_sec = 30600
+        time_sec = 31620
     departures = data_manager.get_upcoming_departures(stop_id, time_sec)
     for dep in departures:
         tid = dep["trip_id"]
@@ -147,21 +146,18 @@ def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
         "departures": departures
     }
 
-def find_live_vehicle_for_route(route_id_str: str, board_stop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    # Match an active vehicle on this route or nearest vehicle
+def find_live_vehicle_for_route(bus_number: str, board_stop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     target_v = None
     for v in live_vehicles:
-        if str(v.get("route_id", "")).strip().lower() == route_id_str.strip().lower():
+        if str(v.get("route_id", "")).strip().lower() == bus_number.strip().lower():
             target_v = v
             break
     if not target_v and live_vehicles:
-        # Fallback to the closest vehicle
         target_v = live_vehicles[0]
 
     if not target_v or not board_stop:
         return None
 
-    # Calculate distance from bus to boarding stop
     d_lat = (target_v["lat"] - board_stop["lat"]) * 111320
     d_lon = (target_v["lon"] - board_stop["lon"]) * 111320 * math.cos(math.radians(board_stop["lat"]))
     dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
@@ -171,6 +167,7 @@ def find_live_vehicle_for_route(route_id_str: str, board_stop: Dict[str, Any]) -
     return {
         "vehicle_id": target_v["vehicle_id"],
         "route_id": target_v["route_id"],
+        "bus_name": target_v.get("bus_name", f"Bus {target_v['route_id']}"),
         "route_color": target_v["route_color"],
         "lat": target_v["lat"],
         "lon": target_v["lon"],
@@ -203,6 +200,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
 
         if is_walking:
             bus_number = "Walk"
+            bus_line_name = "Walk"
             bus_name = "Walk"
             headsign = ""
             action_title = f"Walk to {a_stop['name']}"
@@ -214,9 +212,17 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             raw_rid = str(leg.get("real_route_id", "")).strip()
             route_meta = data_manager.routes.get(raw_rid, {})
             bus_number = route_meta.get("short_name", raw_rid) or raw_rid
+            bus_line_name = route_meta.get("long_name", "")
             headsign = leg.get("headsign", "")
-            bus_name = f"Bus {bus_number}" + (f" ({headsign})" if headsign else "")
-            action_title = f"Hop on Bus {bus_number}" + (f" - {headsign}" if headsign else "")
+
+            # Combine line name & headsign cleanly
+            if bus_line_name and bus_line_name.lower() not in headsign.lower():
+                bus_name = f"Bus {bus_number} ({bus_line_name})"
+                action_title = f"Catch Bus {bus_number} ({bus_line_name})" + (f" - {headsign}" if headsign else "")
+            else:
+                bus_name = f"Bus {bus_number}" + (f" ({headsign})" if headsign else "")
+                action_title = f"Catch Bus {bus_number}" + (f" - {headsign}" if headsign else "")
+
             route_color = route_meta.get("color", "#4F46E5")
             route_text_color = route_meta.get("text_color", "#FFFFFF")
             live_vehicle = find_live_vehicle_for_route(bus_number, b_stop)
@@ -240,6 +246,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             "leg_index": i + 1,
             "is_walking": is_walking,
             "bus_number": bus_number,
+            "bus_line_name": bus_line_name,
             "bus_name": bus_name,
             "headsign": headsign,
             "action_title": action_title,
@@ -272,7 +279,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     for leg in formatted_legs:
         if not leg["is_walking"]:
             first_bus_sec = leg["board_time_sec"]
-            first_bus_label = f"Bus {leg['bus_number']}"
+            first_bus_label = leg["bus_name"]
             break
 
     option = {
@@ -300,7 +307,7 @@ def plan_route(req: RoutePlanRequest):
     source = data_manager.get_stop(req.source_stop)
     target = data_manager.get_stop(req.target_stop)
     if not source or not target:
-        raise HTTPException(status_code=400, detail="Invalid source or target stop ID")
+        raise HTTPException(status_code=400, detail="Invalid starting point or destination")
 
     options = []
     total_latency_ms = 0.0
@@ -332,12 +339,11 @@ def plan_route(req: RoutePlanRequest):
     if not options:
         return {
             "success": False,
-            "message": "No bus connections found for this time window. Try selecting another time or nearby stops.",
+            "message": "No bus connections found for this time window. Try selecting another departure time.",
             "source": source,
             "target": target,
             "departure_date": req.departure_date or "today",
             "departure_time": data_manager.sec_to_hms(dep_sec),
-            "engine_latency_ms": round(total_latency_ms, 3),
             "options": []
         }
 
@@ -347,7 +353,6 @@ def plan_route(req: RoutePlanRequest):
         "target": target,
         "departure_date": req.departure_date or "today",
         "departure_time": data_manager.sec_to_hms(dep_sec),
-        "engine_latency_ms": round(total_latency_ms, 3),
         "options_count": len(options),
         "options": options,
         "itinerary": options[0]["itinerary"],
@@ -365,21 +370,36 @@ async def telemetry_background_worker():
     if not stops:
         return
 
-    # Real bus route numbers in Thunder Bay
-    active_bus_lines = ["1", "2", "3C", "3J", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
-    num_vehicles = min(len(active_bus_lines), len(stops) - 5)
+    # Real Thunder Bay Transit Bus Lines
+    active_bus_lines = [
+        ("1", "Mainline"),
+        ("2", "Crosstown"),
+        ("3C", "County Park"),
+        ("3M", "Memorial"),
+        ("5", "Edward"),
+        ("8", "James"),
+        ("9", "Junot"),
+        ("10", "Northwood"),
+        ("11", "John"),
+        ("12", "East End"),
+        ("14", "Arthur"),
+        ("16", "Balmoral"),
+        ("17", "Current River"),
+        ("18", "Westfort")
+    ]
+    
     vehicles = []
-
-    for i in range(num_vehicles):
-        rid = active_bus_lines[i]
-        route_meta = data_manager.routes.get(rid, {})
-        color = route_meta.get("color", ["#EF4135", "#13B5EA", "#BF4F9D", "#00B259", "#F26531", "#9C0059", "#8DC63F", "#E58E1A"][i % 8])
-        s_from = stops[(i * 25) % len(stops)]
-        s_to = stops[(i * 25 + 8) % len(stops)]
+    for i, (rid, rname) in enumerate(active_bus_lines):
+        meta = THUNDER_BAY_ROUTES.get(rid, {})
+        color = meta.get("color", "#4F46E5")
+        s_from = stops[(i * 35) % len(stops)]
+        s_to = stops[(i * 35 + 12) % len(stops)]
 
         vehicles.append({
-            "vehicle_id": f"BUS-{200 + i}",
+            "vehicle_id": f"BUS-{100 + i + 1}",
             "route_id": rid,
+            "route_name": rname,
+            "bus_name": f"Bus {rid} ({rname})",
             "route_color": color,
             "from_stop": s_from["name"],
             "to_stop": s_to["name"],
@@ -387,9 +407,9 @@ async def telemetry_background_worker():
             "lon": s_from["lon"],
             "target_lat": s_to["lat"],
             "target_lon": s_to["lon"],
-            "progress": (i * 0.12) % 1.0,
-            "speed_kmh": 32.0 + (i % 14),
-            "delay_sec": (i * 30) % 240,
+            "progress": (i * 0.15) % 1.0,
+            "speed_kmh": 32.0 + (i % 12),
+            "delay_sec": (i * 25) % 180,
             "occupancy": ["SEATS_AVAILABLE", "SEATS_AVAILABLE", "STANDING_ROOM_ONLY", "EMPTY"][i % 4]
         })
 
@@ -401,11 +421,11 @@ async def telemetry_background_worker():
                     v["progress"] = 0.0
                     idx = (int(v["vehicle_id"].split("-")[1]) + int(time.time())) % len(stops)
                     v["from_stop"] = stops[idx]["name"]
-                    v["to_stop"] = stops[(idx + 6) % len(stops)]["name"]
+                    v["to_stop"] = stops[(idx + 8) % len(stops)]["name"]
                     v["lat"] = stops[idx]["lat"]
                     v["lon"] = stops[idx]["lon"]
-                    v["target_lat"] = stops[(idx + 6) % len(stops)]["lat"]
-                    v["target_lon"] = stops[(idx + 6) % len(stops)]["lon"]
+                    v["target_lat"] = stops[(idx + 8) % len(stops)]["lat"]
+                    v["target_lon"] = stops[(idx + 8) % len(stops)]["lon"]
                 else:
                     p = v["progress"]
                     v["current_lat"] = v["lat"] + (v["target_lat"] - v["lat"]) * p
@@ -416,6 +436,8 @@ async def telemetry_background_worker():
                 {
                     "vehicle_id": v["vehicle_id"],
                     "route_id": v["route_id"],
+                    "route_name": v["route_name"],
+                    "bus_name": v["bus_name"],
                     "route_color": v["route_color"],
                     "lat": v.get("current_lat", v["lat"]),
                     "lon": v.get("current_lon", v["lon"]),

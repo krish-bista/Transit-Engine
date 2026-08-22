@@ -4,6 +4,30 @@ import math
 import pandas as pd
 from typing import List, Dict, Any, Optional
 
+# Official Thunder Bay Transit Route Catalog
+THUNDER_BAY_ROUTES = {
+    "1": {"name": "Mainline", "color": "#EF4135", "text_color": "#FFFFFF"},
+    "2": {"name": "Crosstown", "color": "#13B5EA", "text_color": "#FFFFFF"},
+    "3C": {"name": "County Park", "color": "#9B7D0D", "text_color": "#FFFFFF"},
+    "3J": {"name": "Jumbo Gardens", "color": "#EE2B74", "text_color": "#FFFFFF"},
+    "3M": {"name": "Memorial", "color": "#E58E1A", "text_color": "#FFFFFF"},
+    "4": {"name": "Neebing", "color": "#F26531", "text_color": "#FFFFFF"},
+    "5": {"name": "Edward", "color": "#936FB1", "text_color": "#FFFFFF"},
+    "6": {"name": "Mission Rd", "color": "#9C0059", "text_color": "#FFFFFF"},
+    "7": {"name": "Hudson", "color": "#762123", "text_color": "#FFFFFF"},
+    "8": {"name": "James", "color": "#00B259", "text_color": "#FFFFFF"},
+    "9": {"name": "Junot", "color": "#0067AC", "text_color": "#FFFFFF"},
+    "10": {"name": "Northwood", "color": "#6A2C91", "text_color": "#FFFFFF"},
+    "11": {"name": "John", "color": "#8DC63F", "text_color": "#FFFFFF"},
+    "12": {"name": "East End", "color": "#FDBB30", "text_color": "#000000"},
+    "13": {"name": "John-Jumbo", "color": "#008E7F", "text_color": "#FFFFFF"},
+    "14": {"name": "Arthur", "color": "#7ACCC8", "text_color": "#000000"},
+    "15": {"name": "Beverly", "color": "#0A0C53", "text_color": "#FFFFFF"},
+    "16": {"name": "Balmoral", "color": "#D11242", "text_color": "#FFFFFF"},
+    "17": {"name": "Current River", "color": "#BF4F9D", "text_color": "#FFFFFF"},
+    "18": {"name": "Westfort", "color": "#CC667A", "text_color": "#FFFFFF"}
+}
+
 class GTFSDataManager:
     def __init__(self, raw_dir: Optional[str] = None, binary_dir: Optional[str] = None):
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -45,7 +69,7 @@ class GTFSDataManager:
                 self.stops.append(stop_obj)
                 self.stop_by_id[idx] = stop_obj
 
-        # 2. Load routes.txt
+        # 2. Load routes.txt with official Thunder Bay metadata mapping
         routes_file = os.path.join(self.raw_dir, "routes.txt")
         if not os.path.exists(routes_file):
             routes_file = os.path.join(self.raw_dir, "extracted", "routes.txt")
@@ -54,17 +78,29 @@ class GTFSDataManager:
             df_routes = pd.read_csv(routes_file, dtype=str)
             for _, r in df_routes.iterrows():
                 rid = str(r.get("route_id", "")).strip()
-                color = str(r.get("route_color", "4F46E5")).strip()
+                short_name = str(r.get("route_short_name", rid)).strip()
+                
+                # Check official Thunder Bay catalog
+                official = THUNDER_BAY_ROUTES.get(short_name, THUNDER_BAY_ROUTES.get(rid, {}))
+                route_name = official.get("name", str(r.get("route_long_name", f"Route {short_name}")).strip())
+                if not route_name or route_name == "nan":
+                    route_name = f"Route {short_name}"
+                
+                color = official.get("color") or str(r.get("route_color", "4F46E5")).strip()
                 if not color or color == "nan":
                     color = "4F46E5"
                 if not color.startswith("#"):
                     color = f"#{color}"
+                
+                text_color = official.get("text_color") or ("#" + str(r.get("route_text_color", "FFFFFF")).strip("#"))
+
                 self.routes[rid] = {
                     "id": rid,
-                    "short_name": str(r.get("route_short_name", rid)).strip(),
-                    "long_name": str(r.get("route_long_name", "")).strip(),
+                    "short_name": short_name,
+                    "long_name": route_name,
+                    "display_name": f"Bus {short_name} ({route_name})",
                     "color": color,
-                    "text_color": "#" + str(r.get("route_text_color", "FFFFFF")).strip("#"),
+                    "text_color": text_color,
                 }
 
         # 3. Load trips.txt (contains headsign, route_id, shape_id)
@@ -172,11 +208,13 @@ class GTFSDataManager:
                 trip_meta = self.trips.get(tid, {})
                 rid = trip_meta.get("route_id", "")
                 route_meta = self.routes.get(rid, {})
+                short_name = route_meta.get("short_name", rid)
+                long_name = route_meta.get("long_name", "")
                 headsign = trip_meta.get("headsign", "")
-                bus_name = f"Bus {rid}" + (f" ({headsign})" if headsign else "")
+                bus_name = f"Bus {short_name}" + (f" ({long_name})" if long_name else "")
                 departures.append({
                     "trip_id": tid,
-                    "route_id": rid,
+                    "route_id": short_name,
                     "bus_name": bus_name,
                     "headsign": headsign,
                     "route_color": route_meta.get("color", "#4F46E5"),
