@@ -87,20 +87,21 @@ class GTFSDataManager:
             st_file = os.path.join(self.raw_dir, "extracted", "stop_times.txt")
 
         if os.path.exists(st_file):
-            # Load subset of stop times to keep memory fast
-            df_st = pd.read_csv(st_file, dtype=str, nrows=50000)
+            df_st = pd.read_csv(st_file, dtype=str)
             for _, row in df_st.iterrows():
                 sid_str = str(row["stop_id"])
                 if sid_str in self.stop_by_raw_id:
                     sid_int = self.stop_by_raw_id[sid_str]
                     arr_sec = self.hms_to_sec(row["arrival_time"])
                     dep_sec = self.hms_to_sec(row["departure_time"])
+                    seq_val = int(row.get("stop_sequence", 0))
                     self.stop_times.append({
                         "trip_id": str(row["trip_id"]),
                         "stop_id": sid_int,
                         "arr_sec": arr_sec,
                         "dep_sec": dep_sec,
-                        "seq": int(row["stop_sequence"])
+                        "seq": seq_val,
+                        "stop_sequence": seq_val
                     })
 
     @staticmethod

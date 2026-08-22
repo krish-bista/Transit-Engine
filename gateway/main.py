@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import math
 import asyncio
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
@@ -8,16 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import grpc
 
-import routing_pb2
-import routing_pb2_grpc
 from gtfs_data import GTFSDataManager
+from raptor_engine import RaptorEngine
 
 app = FastAPI(
     title="High-Performance Transit Routing Engine API",
-    description="Full-stack C++20 RAPTOR transit engine with multi-modal footpaths, live GTFS-RT telemetry, and range options.",
-    version="1.1.0"
+    description="Full-stack RAPTOR multi-modal transit engine with walking transfers, live GTFS-RT telemetry, and multi-departure itineraries.",
+    version="1.2.0"
 )
 
 # Enable CORS
@@ -29,8 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Data Manager
+# Data & Routing Engines
 data_manager = GTFSDataManager()
+raptor_engine = RaptorEngine(data_manager.stops, data_manager.stop_times, data_manager.routes)
 
 # WebSocket client manager
 class ConnectionManager:
@@ -58,18 +58,12 @@ ws_manager = ConnectionManager()
 live_delays: Dict[int, Dict[str, Any]] = {}
 live_vehicles: List[Dict[str, Any]] = []
 
-def get_grpc_stub():
-    host = os.getenv("ENGINE_HOST", "172.19.182.96")
-    port = int(os.getenv("ENGINE_PORT", "50051"))
-    channel = grpc.insecure_channel(f"{host}:{port}")
-    return routing_pb2_grpc.RoutingEngineStub(channel)
-
 # Pydantic Schemas
 class RoutePlanRequest(BaseModel):
     source_stop: int
     target_stop: int
     departure_time: Optional[Any] = None  # "08:47" or seconds
-    departure_date: Optional[str] = "today" # "today", "tomorrow", "YYYY-MM-DD"
+    departure_date: Optional[str] = "today" # "today", "tomorrow"
     num_options: Optional[int] = 3
 
 class StopDTO(BaseModel):
@@ -79,7 +73,7 @@ class StopDTO(BaseModel):
     lon: float
     raw_id: str
 
-# Web Directory Static Files
+# Static Files
 WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
 if os.path.exists(WEB_DIR):
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -89,13 +83,7 @@ def serve_root():
     index_path = os.path.join(WEB_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {
-        "system": "Transit Engine",
-        "version": "1.1.0",
-        "status": "online",
-        "stops_loaded": len(data_manager.stops),
-        "routes_loaded": len(data_manager.routes)
-    }
+    return {"system": "Transit Engine", "version": "1.2.0", "status": "online"}
 
 @app.get("/styles.css", include_in_schema=False)
 def serve_styles():
@@ -107,21 +95,12 @@ def serve_app_js():
 
 @app.get("/api/health")
 def health():
-    engine_ok = False
-    try:
-        stub = get_grpc_stub()
-        resp = stub.GetEarliestArrival(
-            routing_pb2.RouteRequest(source_stop=0, target_stop=0, departure_time=36000),
-            timeout=1.0
-        )
-        engine_ok = resp.success
-    except Exception:
-        engine_ok = False
-
     return {
-        "status": "healthy" if engine_ok else "degraded",
-        "grpc_engine": "connected" if engine_ok else "unreachable",
+        "status": "healthy",
+        "engine": "McRAPTOR (Multi-Modal + Footpaths)",
         "stops_count": len(data_manager.stops),
+        "routes_count": len(raptor_engine.routes),
+        "walking_footpaths": sum(len(fps) for fps in raptor_engine.footpaths.values()),
         "active_ws_clients": len(ws_manager.active_connections),
         "live_vehicles_count": len(live_vehicles)
     }
@@ -149,7 +128,7 @@ def get_routes():
 @app.get("/api/stops/{stop_id}/departures")
 def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
     if time_sec is None:
-        time_sec = 30600 # 08:30 default
+        time_sec = 30600
     departures = data_manager.get_upcoming_departures(stop_id, time_sec)
     for dep in departures:
         tid = dep["trip_id"]
@@ -161,21 +140,12 @@ def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
         "departures": departures
     }
 
-def calculate_single_itinerary(stub, source_id: int, target_id: int, dep_sec: int):
+def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     t_start = time.perf_counter()
-    try:
-        grpc_req = routing_pb2.RouteRequest(
-            source_stop=source_id,
-            target_stop=target_id,
-            departure_time=dep_sec
-        )
-        grpc_resp = stub.GetEarliestArrival(grpc_req, timeout=1.5)
-    except Exception as e:
-        return None, (time.perf_counter() - t_start) * 1000.0
-
+    raw_path = raptor_engine.plan_route(source_id, target_id, dep_sec)
     latency_ms = (time.perf_counter() - t_start) * 1000.0
 
-    if not grpc_resp.success or len(grpc_resp.itinerary) == 0:
+    if not raw_path:
         return None, latency_ms
 
     formatted_legs = []
@@ -183,37 +153,36 @@ def calculate_single_itinerary(stub, source_id: int, target_id: int, dep_sec: in
     last_alight = None
     transit_transfers = 0
 
-    for i, leg in enumerate(grpc_resp.itinerary):
-        b_stop = data_manager.get_stop(leg.board_stop) or {"id": leg.board_stop, "name": f"Stop {leg.board_stop}", "lat": 0, "lon": 0}
-        a_stop = data_manager.get_stop(leg.alight_stop) or {"id": leg.alight_stop, "name": f"Stop {leg.alight_stop}", "lat": 0, "lon": 0}
-        
-        is_walking = (leg.route_id >= 0xFFFFFFFE)
-        r_id = str(leg.route_id)
-        
+    for i, leg in enumerate(raw_path):
+        b_stop = data_manager.get_stop(leg["board_stop"]) or {"id": leg["board_stop"], "name": f"Stop {leg['board_stop']}", "lat": 0, "lon": 0}
+        a_stop = data_manager.get_stop(leg["alight_stop"]) or {"id": leg["alight_stop"], "name": f"Stop {leg['alight_stop']}", "lat": 0, "lon": 0}
+
+        is_walking = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
+
         if is_walking:
             route_short_name = "Walk"
-            route_color = "#64748B"
+            route_color = "#06b6d4"
             route_text_color = "#FFFFFF"
         else:
             transit_transfers += 1
+            r_id = str(leg["route_id"])
             route_meta = data_manager.routes.get(r_id, {
-                "short_name": f"{leg.route_id}",
+                "short_name": f"{leg['route_id']}",
                 "color": "#4F46E5",
                 "text_color": "#FFFFFF"
             })
-            route_short_name = route_meta.get("short_name", f"{leg.route_id}")
+            route_short_name = route_meta.get("short_name", f"{leg['route_id']}")
             route_color = route_meta.get("color", "#4F46E5")
             route_text_color = route_meta.get("text_color", "#FFFFFF")
 
         if first_board is None:
-            first_board = leg.board_time
-        last_alight = leg.alight_time
+            first_board = leg["board_time"]
+        last_alight = leg["alight_time"]
 
-        duration_sec = max(0, leg.alight_time - leg.board_time)
+        duration_sec = max(0, leg["alight_time"] - leg["board_time"])
         duration_mins = max(1, duration_sec // 60)
 
         # Distance estimation
-        import math
         d_lat = (a_stop["lat"] - b_stop["lat"]) * 111320
         d_lon = (a_stop["lon"] - b_stop["lon"]) * 111320 * math.cos(math.radians(b_stop["lat"]))
         dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
@@ -223,16 +192,16 @@ def calculate_single_itinerary(stub, source_id: int, target_id: int, dep_sec: in
         formatted_legs.append({
             "leg_index": i + 1,
             "is_walking": is_walking,
-            "route_id": leg.route_id,
+            "route_id": leg["route_id"],
             "route_short_name": route_short_name,
             "route_color": route_color,
             "route_text_color": route_text_color,
             "board_stop": b_stop,
             "alight_stop": a_stop,
-            "board_time_sec": leg.board_time,
-            "board_time_formatted": data_manager.sec_to_hms(leg.board_time),
-            "alight_time_sec": leg.alight_time,
-            "alight_time_formatted": data_manager.sec_to_hms(leg.alight_time),
+            "board_time_sec": leg["board_time"],
+            "board_time_formatted": data_manager.sec_to_hms(leg["board_time"]),
+            "alight_time_sec": leg["alight_time"],
+            "alight_time_formatted": data_manager.sec_to_hms(leg["alight_time"]),
             "duration_mins": duration_mins,
             "distance_m": dist_m,
             "instruction": instruction,
@@ -246,7 +215,6 @@ def calculate_single_itinerary(stub, source_id: int, target_id: int, dep_sec: in
     last_alight = formatted_legs[-1]["alight_time_sec"] if formatted_legs else dep_sec
     total_duration_mins = max(1, (last_alight - first_board) // 60)
 
-    # First transit bus boarding time
     first_bus_sec = None
     for leg in formatted_legs:
         if not leg["is_walking"]:
@@ -279,11 +247,6 @@ def plan_route(req: RoutePlanRequest):
     if not source or not target:
         raise HTTPException(status_code=400, detail="Invalid source or target stop ID")
 
-    try:
-        stub = get_grpc_stub()
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"C++ Engine gRPC connection error: {str(e)}")
-
     options = []
     total_latency_ms = 0.0
     current_search_dep = dep_sec
@@ -295,7 +258,7 @@ def plan_route(req: RoutePlanRequest):
         if len(options) >= num_options:
             break
 
-        opt, latency = calculate_single_itinerary(stub, req.source_stop, req.target_stop, current_search_dep)
+        opt, latency = calculate_single_itinerary(req.source_stop, req.target_stop, current_search_dep)
         total_latency_ms += latency
 
         if not opt:
@@ -309,7 +272,6 @@ def plan_route(req: RoutePlanRequest):
             seen_departure_times.add(dep_key)
             options.append(opt)
 
-        # Advance search window past the boarded bus trip
         current_search_dep = max(current_search_dep + 120, opt["first_bus_sec"] + 60)
 
     if not options:
@@ -342,7 +304,7 @@ def plan_route(req: RoutePlanRequest):
 def get_live_vehicles():
     return live_vehicles
 
-# Real-time Background Vehicle Simulator & Telemetry Broadcaster
+# Real-time Background Vehicle Simulator & Broadcaster
 async def telemetry_background_worker():
     stops = data_manager.stops
     if not stops:
