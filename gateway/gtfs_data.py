@@ -1,5 +1,6 @@
 import os
 import struct
+import math
 import pandas as pd
 from typing import List, Dict, Any, Optional
 
@@ -28,13 +29,10 @@ class GTFSDataManager:
 
         if os.path.exists(stops_file):
             df_stops = pd.read_csv(stops_file, dtype=str)
-            # Ensure deterministic 0-based indexing matching gtfs_compiler.py
             unique_stops = sorted(df_stops["stop_id"].unique(), key=str)
             self.stop_by_raw_id = {sid: idx for idx, sid in enumerate(unique_stops)}
             
-            # Map stop_id -> details
             stops_dict = df_stops.drop_duplicates(subset=["stop_id"]).set_index("stop_id").to_dict(orient="index")
-            
             for sid, idx in self.stop_by_raw_id.items():
                 row = stops_dict.get(sid, {})
                 stop_obj = {
@@ -55,21 +53,40 @@ class GTFSDataManager:
         if os.path.exists(routes_file):
             df_routes = pd.read_csv(routes_file, dtype=str)
             for _, r in df_routes.iterrows():
-                rid = str(r.get("route_id", ""))
-                color = str(r.get("route_color", "2563EB")).strip()
+                rid = str(r.get("route_id", "")).strip()
+                color = str(r.get("route_color", "4F46E5")).strip()
                 if not color or color == "nan":
-                    color = "2563EB"
+                    color = "4F46E5"
                 if not color.startswith("#"):
                     color = f"#{color}"
                 self.routes[rid] = {
                     "id": rid,
-                    "short_name": str(r.get("route_short_name", rid)),
-                    "long_name": str(r.get("route_long_name", "")),
+                    "short_name": str(r.get("route_short_name", rid)).strip(),
+                    "long_name": str(r.get("route_long_name", "")).strip(),
                     "color": color,
                     "text_color": "#" + str(r.get("route_text_color", "FFFFFF")).strip("#"),
                 }
 
-        # 3. Load shapes.txt
+        # 3. Load trips.txt (contains headsign, route_id, shape_id)
+        trips_file = os.path.join(self.raw_dir, "trips.txt")
+        if not os.path.exists(trips_file):
+            trips_file = os.path.join(self.raw_dir, "extracted", "trips.txt")
+
+        if os.path.exists(trips_file):
+            df_trips = pd.read_csv(trips_file, dtype=str)
+            for _, tr in df_trips.iterrows():
+                tid = str(tr.get("trip_id", "")).strip()
+                rid = str(tr.get("route_id", "")).strip()
+                headsign = str(tr.get("trip_headsign", "")).strip()
+                shape_id = str(tr.get("shape_id", "")).strip()
+                self.trips[tid] = {
+                    "trip_id": tid,
+                    "route_id": rid,
+                    "headsign": headsign,
+                    "shape_id": shape_id
+                }
+
+        # 4. Load shapes.txt
         shapes_file = os.path.join(self.raw_dir, "shapes.txt")
         if not os.path.exists(shapes_file):
             shapes_file = os.path.join(self.raw_dir, "extracted", "shapes.txt")
@@ -81,7 +98,7 @@ class GTFSDataManager:
                 pts = group.sort_values("seq")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
                 self.shapes[str(shape_id)] = pts
 
-        # 4. Load sample stop_times for departure boards
+        # 5. Load all stop_times.txt
         st_file = os.path.join(self.raw_dir, "stop_times.txt")
         if not os.path.exists(st_file):
             st_file = os.path.join(self.raw_dir, "extracted", "stop_times.txt")
@@ -96,7 +113,7 @@ class GTFSDataManager:
                     dep_sec = self.hms_to_sec(row["departure_time"])
                     seq_val = int(row.get("stop_sequence", 0))
                     self.stop_times.append({
-                        "trip_id": str(row["trip_id"]),
+                        "trip_id": str(row["trip_id"]).strip(),
                         "stop_id": sid_int,
                         "arr_sec": arr_sec,
                         "dep_sec": dep_sec,
@@ -120,7 +137,6 @@ class GTFSDataManager:
     def sec_to_hms(sec: int) -> str:
         h = (sec // 3600) % 24
         m = (sec % 3600) // 60
-        s = sec % 60
         return f"{h:02d}:{m:02d}"
 
     def get_stop(self, stop_id: int) -> Optional[Dict[str, Any]]:
@@ -132,12 +148,38 @@ class GTFSDataManager:
     def get_routes(self) -> Dict[str, Dict[str, Any]]:
         return self.routes
 
+    def find_nearest_stop(self, lat: float, lon: float) -> Optional[Dict[str, Any]]:
+        if not self.stops:
+            return None
+        best_stop = None
+        min_dist = float("inf")
+        for stop in self.stops:
+            dlat = math.radians(stop["lat"] - lat)
+            dlon = math.radians(stop["lon"] - lon)
+            a = math.sin(dlat / 2.0)**2 + math.cos(math.radians(lat)) * math.cos(math.radians(stop["lat"])) * math.sin(dlon / 2.0)**2
+            dist = 2.0 * 6371000.0 * math.asin(math.sqrt(a))
+            if dist < min_dist:
+                min_dist = dist
+                best_stop = dict(stop)
+                best_stop["distance_m"] = int(dist)
+        return best_stop
+
     def get_upcoming_departures(self, stop_id: int, current_sec: int, limit: int = 10) -> List[Dict[str, Any]]:
         departures = []
         for st in self.stop_times:
             if st["stop_id"] == stop_id and st["dep_sec"] >= current_sec:
+                tid = st["trip_id"]
+                trip_meta = self.trips.get(tid, {})
+                rid = trip_meta.get("route_id", "")
+                route_meta = self.routes.get(rid, {})
+                headsign = trip_meta.get("headsign", "")
+                bus_name = f"Bus {rid}" + (f" ({headsign})" if headsign else "")
                 departures.append({
-                    "trip_id": st["trip_id"],
+                    "trip_id": tid,
+                    "route_id": rid,
+                    "bus_name": bus_name,
+                    "headsign": headsign,
+                    "route_color": route_meta.get("color", "#4F46E5"),
                     "departure_sec": st["dep_sec"],
                     "departure_time": self.sec_to_hms(st["dep_sec"]),
                     "delay_sec": 0,

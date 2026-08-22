@@ -7,9 +7,12 @@ let targetStopId = 184; // Thunder Bay Regional Hospital
 let busMarkers = {};
 let routePolylineLayer = null;
 let stopMarkersLayer = null;
+let trackingPolylineLayer = null;
 let showStopPins = true;
 let currentRouteData = null;
 let selectedOptionIndex = 0;
+let trackedVehicleId = null;
+let trackedBoardStop = null;
 let ws;
 
 // Initialize when DOM loads
@@ -28,23 +31,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const tStop = stopsData.find(s => s.id === targetStopId);
   if (sStop) {
     document.getElementById("source-input").value = sStop.name;
-    document.getElementById("source-id-tag").innerText = `ID: ${sStop.id}`;
   }
   if (tStop) {
     document.getElementById("target-input").value = tStop.name;
-    document.getElementById("target-id-tag").innerText = `ID: ${tStop.id}`;
   }
 
   setupAutocomplete("source-input", "source-results", (stop) => {
     sourceStopId = stop.id;
-    document.getElementById("source-id-tag").innerText = `ID: ${stop.id}`;
-    highlightStopOnMap(stop);
+    highlightStopOnMap(stop, true);
   });
 
   setupAutocomplete("target-input", "target-results", (stop) => {
     targetStopId = stop.id;
-    document.getElementById("target-id-tag").innerText = `ID: ${stop.id}`;
-    highlightStopOnMap(stop);
+    highlightStopOnMap(stop, false);
   });
 
   // Calculate default route immediately
@@ -67,12 +66,53 @@ function initMap() {
 
   stopMarkersLayer = L.layerGroup().addTo(map);
   routePolylineLayer = L.layerGroup().addTo(map);
+  trackingPolylineLayer = L.layerGroup().addTo(map);
 }
 
 function centerMapOnTransit() {
   if (map) {
     map.setView([48.416, -89.236], 13);
   }
+}
+
+// Current Location Geolocation Handler
+async function useCurrentLocation() {
+  const input = document.getElementById("source-input");
+  input.value = "Locating your position...";
+
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser.");
+    input.value = "Edward & Gordon";
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      try {
+        const res = await fetch(`/api/nearest-stop?lat=${lat}&lon=${lon}`);
+        if (!res.ok) throw new Error("Failed to find nearest stop");
+        const nearest = await res.json();
+
+        sourceStopId = nearest.id;
+        input.value = `${nearest.name} (~${nearest.distance_m || 50}m away)`;
+        highlightStopOnMap(nearest, true);
+        calculateRoute();
+      } catch (err) {
+        input.value = "Edward & Gordon";
+        sourceStopId = 217;
+      }
+    },
+    (err) => {
+      // Fallback on permission denied
+      input.value = "Edward & Gordon (Near You)";
+      sourceStopId = 217;
+      calculateRoute();
+    },
+    { timeout: 6000 }
+  );
 }
 
 // Load Stops from Gateway
@@ -105,22 +145,26 @@ function renderStopPins() {
   if (!showStopPins) return;
 
   stopsData.forEach(stop => {
+    let pinClass = "stop-pin";
+    if (stop.id === sourceStopId) pinClass += " origin";
+    if (stop.id === targetStopId) pinClass += " destination";
+
     const icon = L.divIcon({
       className: "stop-pin-wrapper",
-      html: `<div class="stop-pin" title="${stop.name}"></div>`,
-      iconSize: [10, 10],
-      iconAnchor: [5, 5]
+      html: `<div class="${pinClass}" title="${stop.name}"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6]
     });
 
     const marker = L.marker([stop.lat, stop.lon], { icon });
     marker.bindPopup(`
       <div class="p-2 space-y-1.5 text-slate-900 font-sans">
         <h4 class="font-bold text-sm">${stop.name}</h4>
-        <span class="text-xs text-slate-500 font-mono">Stop ID: ${stop.id} (${stop.raw_id})</span>
+        <span class="text-xs text-slate-500 font-mono">Stop #${stop.id}</span>
         <div class="flex space-x-2 pt-2">
-          <button onclick="setAsOrigin(${stop.id})" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold">Origin</button>
-          <button onclick="setAsDestination(${stop.id})" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-semibold">Destination</button>
-          <button onclick="openDeparturesModal(${stop.id})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold">Schedule</button>
+          <button onclick="setAsOrigin(${stop.id})" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold">Start Here</button>
+          <button onclick="setAsDestination(${stop.id})" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-semibold">Go Here</button>
+          <button onclick="openDeparturesModal(${stop.id})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold">Live Buses</button>
         </div>
       </div>
     `);
@@ -141,8 +185,9 @@ function setAsOrigin(stopId) {
   if (stop) {
     sourceStopId = stop.id;
     document.getElementById("source-input").value = stop.name;
-    document.getElementById("source-id-tag").innerText = `ID: ${stop.id}`;
     map.closePopup();
+    renderStopPins();
+    calculateRoute();
   }
 }
 
@@ -151,14 +196,16 @@ function setAsDestination(stopId) {
   if (stop) {
     targetStopId = stop.id;
     document.getElementById("target-input").value = stop.name;
-    document.getElementById("target-id-tag").innerText = `ID: ${stop.id}`;
     map.closePopup();
+    renderStopPins();
+    calculateRoute();
   }
 }
 
-function highlightStopOnMap(stop) {
+function highlightStopOnMap(stop, isOrigin = true) {
   if (map && stop.lat && stop.lon) {
     map.flyTo([stop.lat, stop.lon], 15, { duration: 1.0 });
+    renderStopPins();
   }
 }
 
@@ -179,7 +226,7 @@ function setupAutocomplete(inputId, resultsId, onSelect) {
     ).slice(0, 8);
 
     if (matches.length === 0) {
-      results.innerHTML = `<div class="p-3 text-xs text-slate-500">No stops found</div>`;
+      results.innerHTML = `<div class="p-3 text-xs text-slate-500">No stops found. Try typing a street or landmark name.</div>`;
       results.classList.remove("hidden");
       return;
     }
@@ -189,9 +236,9 @@ function setupAutocomplete(inputId, resultsId, onSelect) {
            onclick="selectStop('${inputId}', '${resultsId}', ${s.id})">
         <div>
           <p class="text-sm font-medium text-slate-200">${s.name}</p>
-          <span class="text-[10px] text-slate-500 font-mono">ID: ${s.id}</span>
+          <span class="text-[10px] text-slate-500 font-mono">Stop #${s.id}</span>
         </div>
-        <span class="text-xs text-indigo-400">Select</span>
+        <span class="text-xs text-indigo-400 font-medium">Select</span>
       </div>
     `).join("");
 
@@ -212,12 +259,11 @@ function selectStop(inputId, resultsId, stopId) {
     document.getElementById(resultsId).classList.add("hidden");
     if (inputId === "source-input") {
       sourceStopId = stop.id;
-      document.getElementById("source-id-tag").innerText = `ID: ${stop.id}`;
     } else {
       targetStopId = stop.id;
-      document.getElementById("target-id-tag").innerText = `ID: ${stop.id}`;
     }
-    highlightStopOnMap(stop);
+    highlightStopOnMap(stop, inputId === "source-input");
+    calculateRoute();
   }
 }
 
@@ -231,8 +277,8 @@ function swapStops() {
 
   document.getElementById("source-input").value = sStop ? sStop.name : "";
   document.getElementById("target-input").value = tStop ? tStop.name : "";
-  document.getElementById("source-id-tag").innerText = `ID: ${sourceStopId}`;
-  document.getElementById("target-id-tag").innerText = `ID: ${targetStopId}`;
+  renderStopPins();
+  calculateRoute();
 }
 
 function setTimePreset(timeStr) {
@@ -248,7 +294,7 @@ function setNowTime() {
   calculateRoute();
 }
 
-// Calculate Route with Multi-Modal Range-RAPTOR
+// Calculate Route with Passenger Directions
 async function calculateRoute() {
   const btn = document.getElementById("search-route-btn");
   const container = document.getElementById("route-results-container");
@@ -256,7 +302,7 @@ async function calculateRoute() {
   const depDate = document.getElementById("departure-date").value || "tomorrow";
 
   btn.disabled = true;
-  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i><span>Routing Multi-Modal Arcs...</span>`;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white"></i><span>Finding Buses...</span>`;
   lucide.createIcons();
 
   try {
@@ -274,13 +320,13 @@ async function calculateRoute() {
 
     const data = await res.json();
     btn.disabled = false;
-    btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-amber-300"></i><span>Calculate Multi-Modal Routes</span>`;
+    btn.innerHTML = `<i data-lucide="compass" class="w-4 h-4 text-white"></i><span>Find Best Bus Options</span>`;
     lucide.createIcons();
 
     if (!data.success || !data.options || data.options.length === 0) {
       container.innerHTML = `
         <div class="bg-amber-950/30 border border-amber-500/30 p-4 rounded-xl text-amber-300 text-xs space-y-1">
-          <p class="font-bold">No Connections Found</p>
+          <p class="font-bold">No Bus Connections Found</p>
           <p>${data.message || "Try picking another time or nearby stops."}</p>
         </div>
       `;
@@ -296,7 +342,7 @@ async function calculateRoute() {
 
   } catch (err) {
     btn.disabled = false;
-    btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-amber-300"></i><span>Calculate Multi-Modal Routes</span>`;
+    btn.innerHTML = `<i data-lucide="compass" class="w-4 h-4 text-white"></i><span>Find Best Bus Options</span>`;
     lucide.createIcons();
     container.innerHTML = `
       <div class="bg-rose-950/30 border border-rose-500/30 p-4 rounded-xl text-rose-300 text-xs">
@@ -329,18 +375,18 @@ function renderOptionsAndItinerary() {
           <span class="text-[11px] font-bold ${isSelected ? 'text-cyan-400' : 'text-slate-400'}">${opt.total_duration_mins}m</span>
         </div>
         <p class="text-xs font-bold mt-0.5 text-white">${opt.departure_time} → ${opt.arrival_time}</p>
-        <span class="text-[10px] text-slate-500">${opt.bus_transfers === 0 ? 'Direct Bus' : `${opt.bus_transfers} bus transfer`}</span>
+        <span class="text-[10px] text-slate-400">${opt.first_bus_label || 'Direct'}</span>
       </button>
     `;
   }).join("");
 
   // Step-by-Step Legs
-  const legsHtml = currentOpt.itinerary.map(leg => {
+  const legsHtml = currentOpt.itinerary.map((leg, lIdx) => {
     if (leg.is_walking) {
       return `
         <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex items-center space-x-3">
-          <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center shrink-0">
-            <i data-lucide="footprints" class="w-4 h-4 text-cyan-400"></i>
+          <div class="w-8 h-8 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+            <i data-lucide="footprints" class="w-4 h-4"></i>
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between">
@@ -353,36 +399,74 @@ function renderOptionsAndItinerary() {
       `;
     }
 
+    const liveVeh = leg.live_vehicle;
+    const trackBtnHtml = liveVeh ? `
+      <button onclick="trackBus('${liveVeh.vehicle_id}', '${leg.bus_number}', ${leg.board_stop.lat}, ${leg.board_stop.lon}, '${leg.bus_name}')"
+              class="w-full mt-2 py-2 px-3 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center space-x-2 transition">
+        <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+        <span>🔴 Live Track Bus ${leg.bus_number} (ETA ~${liveVeh.eta_mins} min)</span>
+      </button>
+    ` : `
+      <button onclick="highlightBusRoute('${leg.bus_number}')"
+              class="w-full mt-2 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-1.5">
+        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+        <span>Show Bus ${leg.bus_number} Path</span>
+      </button>
+    `;
+
     return `
-      <div class="leg-card bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 rounded-md text-xs font-bold shadow text-white"
+      <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 space-y-3 transition shadow-lg">
+        
+        <!-- Header: Hop on Bus X -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div class="flex items-center space-x-2.5">
+            <span class="px-3 py-1 rounded-xl text-sm font-black shadow-md text-white flex items-center space-x-1"
                   style="background-color: ${leg.route_color}">
-              R-${leg.route_short_name}
+              <i data-lucide="bus" class="w-4 h-4 mr-1"></i>
+              <span>BUS ${leg.bus_number}</span>
             </span>
-            <span class="text-xs font-bold text-white">Route ${leg.route_short_name}</span>
+            <div>
+              <h4 class="text-sm font-bold text-white leading-tight">${leg.headsign ? leg.headsign : `Bus Line ${leg.bus_number}`}</h4>
+              <span class="text-[11px] text-emerald-400 font-medium">Departs at ${leg.board_time_formatted}</span>
+            </div>
           </div>
-          <span class="text-xs text-indigo-400 font-mono font-semibold">${leg.duration_mins} min</span>
+          <span class="text-xs font-bold text-slate-300 bg-slate-800 px-2 py-1 rounded-lg mono">${leg.duration_mins} min</span>
         </div>
 
-        <div class="relative pl-5 space-y-3 border-l-2 border-slate-700 ml-2 py-0.5">
+        <!-- Boarding & Alighting Details -->
+        <div class="relative pl-6 space-y-3.5 border-l-2 border-indigo-500/60 ml-2.5 py-1">
+          
+          <!-- Boarding Stop -->
           <div class="relative">
-            <span class="absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-indigo-500 bg-slate-950"></span>
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-semibold text-slate-200 truncate mr-2">${leg.board_stop.name}</p>
-              <span class="text-xs text-slate-400 font-mono shrink-0">${leg.board_time_formatted}</span>
+            <span class="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-indigo-600 shadow-md"></span>
+            <div>
+              <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">Board At</span>
+              <p class="text-xs font-bold text-white">${leg.board_stop.name}</p>
+              <span class="text-[11px] text-slate-400 font-mono">Time: ${leg.board_time_formatted}</span>
             </div>
           </div>
 
+          <!-- Ride Summary -->
+          <div class="text-xs text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800/80 flex items-center justify-between">
+            <span>🚌 ${leg.ride_summary}</span>
+            <span class="text-slate-500 text-[10px]">Sit back & relax</span>
+          </div>
+
+          <!-- Alighting Stop -->
           <div class="relative">
-            <span class="absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-emerald-500 bg-emerald-500"></span>
-            <div class="flex items-center justify-between">
-              <p class="text-xs font-semibold text-slate-200 truncate mr-2">${leg.alight_stop.name}</p>
-              <span class="text-xs text-slate-400 font-mono shrink-0">${leg.alight_time_formatted}</span>
+            <span class="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-emerald-500 shadow-md"></span>
+            <div>
+              <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">Get Off At</span>
+              <p class="text-xs font-bold text-white">${leg.alight_stop.name}</p>
+              <span class="text-[11px] text-slate-400 font-mono">Arrives: ${leg.alight_time_formatted}</span>
             </div>
           </div>
+
         </div>
+
+        <!-- Live Track Action -->
+        ${trackBtnHtml}
+
       </div>
     `;
   }).join("");
@@ -390,42 +474,39 @@ function renderOptionsAndItinerary() {
   container.innerHTML = `
     <!-- Options Switcher -->
     <div class="space-y-1.5">
-      <span class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Upcoming Departures</span>
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Available Trips</span>
       <div class="flex space-x-2">
         ${optionsPillsHtml}
       </div>
     </div>
 
     <!-- Summary Header -->
-    <div class="bg-gradient-to-br from-indigo-950/70 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 space-y-2.5">
+    <div class="bg-gradient-to-br from-indigo-950/80 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 space-y-2.5 shadow-xl">
       <div class="flex items-center justify-between">
         <div>
-          <span class="text-[11px] text-indigo-300 uppercase font-bold tracking-wider">Scheduled Journey</span>
+          <span class="text-[10px] text-indigo-300 uppercase font-bold tracking-wider">Fastest Journey</span>
           <h3 class="text-xl font-black text-white">${currentOpt.departure_time} → ${currentOpt.arrival_time}</h3>
         </div>
         <div class="text-right">
-          <span class="px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-bold text-xs">
-            ${currentOpt.total_duration_mins} mins
+          <span class="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-bold text-xs border border-indigo-500/30">
+            ${currentOpt.total_duration_mins} mins total
           </span>
-          <p class="text-[10px] text-slate-400 mt-1">${currentOpt.bus_transfers === 0 ? 'Direct Bus' : `${currentOpt.bus_transfers} bus transfer(s)`}</p>
+          <p class="text-[11px] text-slate-400 mt-1">${currentOpt.bus_transfers === 0 ? 'Direct Ride (No Transfers)' : `${currentOpt.bus_transfers} bus transfer`}</p>
         </div>
       </div>
 
       <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
-        <span class="flex items-center space-x-1">
-          <i data-lucide="cpu" class="w-3.5 h-3.5 text-cyan-400"></i>
-          <span>C++ McRAPTOR Query: <strong class="text-white mono">${currentRouteData.engine_latency_ms} ms</strong></span>
+        <span class="flex items-center space-x-1.5 text-emerald-400 font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Live GPS Tracking Ready</span>
         </span>
-        <span class="text-emerald-400 font-medium flex items-center space-x-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          <span>Footpaths Enabled</span>
-        </span>
+        <span class="text-slate-400 mono">Computed in ${currentRouteData.engine_latency_ms} ms</span>
       </div>
     </div>
 
     <!-- Step by Step Legs -->
-    <div class="space-y-2 pt-1">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Step-by-Step Directions</h4>
+    <div class="space-y-2.5 pt-1">
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">How to Get There</h4>
       ${legsHtml}
     </div>
   `;
@@ -441,7 +522,6 @@ function drawRouteGeometry(itinerary) {
   itinerary.forEach(leg => {
     if (leg.geometry && leg.geometry.length > 0) {
       if (leg.is_walking) {
-        // Dashed polyline for walking legs
         const line = L.polyline(leg.geometry, {
           color: "#06b6d4",
           weight: 4,
@@ -464,8 +544,62 @@ function drawRouteGeometry(itinerary) {
   });
 
   if (allCoords.length > 0) {
-    map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
+    map.fitBounds(L.latLngBounds(allCoords), { padding: [60, 60] });
   }
+}
+
+// Live Bus Tracking Mode
+function trackBus(vehicleId, busNumber, boardLat, boardLon, busTitle) {
+  trackedVehicleId = vehicleId;
+  trackedBoardStop = { lat: boardLat, lon: boardLon };
+
+  const hud = document.getElementById("tracking-hud");
+  document.getElementById("hud-bus-pill").innerText = `BUS ${busNumber}`;
+  document.getElementById("hud-bus-title").innerText = busTitle || `Bus ${busNumber}`;
+  document.getElementById("hud-bus-id").innerText = `Vehicle ${vehicleId}`;
+  hud.classList.remove("hidden");
+
+  // Focus map on the bus
+  const marker = busMarkers[vehicleId];
+  if (marker) {
+    map.flyTo(marker.getLatLng(), 16, { duration: 1.0 });
+    marker.openPopup();
+  }
+
+  updateTrackedBusDisplay();
+}
+
+function stopTrackingBus() {
+  trackedVehicleId = null;
+  trackedBoardStop = null;
+  document.getElementById("tracking-hud").classList.add("hidden");
+  trackingPolylineLayer.clearLayers();
+}
+
+function updateTrackedBusDisplay() {
+  if (!trackedVehicleId || !trackedBoardStop) return;
+
+  const marker = busMarkers[trackedVehicleId];
+  if (!marker) return;
+
+  const busLatLng = marker.getLatLng();
+  const d_lat = (busLatLng.lat - trackedBoardStop.lat) * 111320;
+  const d_lon = (busLatLng.lng - trackedBoardStop.lon) * 111320 * Math.cos(trackedBoardStop.lat * Math.PI / 180);
+  const distM = Math.round(Math.sqrt(d_lat*d_lat + d_lon*d_lon));
+  const etaMins = Math.max(1, Math.round(distM / 9.5 / 60)); // ~35 km/h
+
+  document.getElementById("hud-dist").innerText = distM > 1000 ? `${(distM/1000).toFixed(1)} km` : `${distM}m`;
+  document.getElementById("hud-eta").innerText = `~${etaMins} min`;
+
+  // Draw connecting dashed path from bus to boarding stop
+  trackingPolylineLayer.clearLayers();
+  const trail = L.polyline([[busLatLng.lat, busLatLng.lng], [trackedBoardStop.lat, trackedBoardStop.lon]], {
+    color: "#38bdf8",
+    weight: 3,
+    dashArray: "4, 6",
+    opacity: 0.9
+  });
+  trackingPolylineLayer.addLayer(trail);
 }
 
 // Real-Time WebSocket Telemetry
@@ -499,42 +633,44 @@ function updateLiveVehicles(vehicles) {
   if (!vehicles) return;
 
   document.getElementById("fleet-count").innerText = vehicles.length;
-  document.getElementById("telemetry-status-text").innerText = `Connected: ${vehicles.length} Live Buses`;
+  document.getElementById("telemetry-status-text").innerText = `${vehicles.length} Live Buses Moving`;
 
   if (vehicles.length > 0) {
     const v = vehicles[Math.floor(Math.random() * vehicles.length)];
     const delayText = v.delay_sec > 0 ? `(+${Math.round(v.delay_sec/60)}m delay)` : "on time";
     document.getElementById("live-ticker-text").innerText = 
-      `${v.vehicle_id} (Route ${v.route_id}) en route to ${v.to_stop} at ${Math.round(v.speed_kmh)} km/h • ${delayText}`;
+      `Bus ${v.route_id} en route to ${v.to_stop} at ${Math.round(v.speed_kmh)} km/h • ${delayText}`;
   }
 
   vehicles.forEach(v => {
     const vid = v.vehicle_id;
+    const isTracked = (vid === trackedVehicleId);
+
     if (!busMarkers[vid]) {
       const icon = L.divIcon({
         className: "bus-marker-wrapper",
         html: `
-          <div class="bus-marker" style="background-color: ${v.route_color};">
+          <div class="bus-marker ${isTracked ? 'tracked' : ''}" style="background-color: ${v.route_color};">
             <div class="bus-pulse"></div>
             <i data-lucide="bus" style="width: 16px; height: 16px;"></i>
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
       });
 
       const marker = L.marker([v.lat, v.lon], { icon }).addTo(map);
       marker.bindPopup(`
         <div class="p-2 space-y-1 text-slate-900 font-sans">
           <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 rounded text-xs font-bold text-white" style="background: ${v.route_color}">R-${v.route_id}</span>
+            <span class="px-2 py-0.5 rounded text-xs font-bold text-white" style="background: ${v.route_color}">Bus ${v.route_id}</span>
             <h4 class="font-bold text-sm">${v.vehicle_id}</h4>
           </div>
-          <p class="text-xs text-slate-600">Next: <strong>${v.to_stop}</strong></p>
+          <p class="text-xs text-slate-600">Heading towards: <strong>${v.to_stop}</strong></p>
           <div class="flex items-center justify-between text-xs pt-1 border-t">
             <span>Speed: ${Math.round(v.speed_kmh)} km/h</span>
             <span class="font-bold ${v.delay_sec > 60 ? 'text-rose-600' : 'text-emerald-600'}">
-              ${v.delay_sec > 60 ? `+${Math.round(v.delay_sec/60)}m delay` : 'On Schedule'}
+              ${v.delay_sec > 60 ? `+${Math.round(v.delay_sec/60)}m late` : 'On Time'}
             </span>
           </div>
         </div>
@@ -546,6 +682,10 @@ function updateLiveVehicles(vehicles) {
     }
   });
 
+  if (trackedVehicleId) {
+    updateTrackedBusDisplay();
+  }
+
   renderFleetList(vehicles);
 }
 
@@ -554,12 +694,12 @@ function renderFleetList(vehicles) {
   if (!container || container.offsetParent === null) return;
 
   container.innerHTML = vehicles.map(v => `
-    <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl space-y-2 hover:border-slate-700 transition cursor-pointer"
+    <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl space-y-2 hover:border-indigo-500/50 transition cursor-pointer shadow"
          onclick="focusVehicle('${v.vehicle_id}')">
       <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <span class="px-2 py-0.5 rounded text-xs font-bold text-white shadow" style="background-color: ${v.route_color}">
-            ${v.route_id}
+        <div class="flex items-center space-x-2.5">
+          <span class="px-2.5 py-0.5 rounded-lg text-xs font-black text-white shadow" style="background-color: ${v.route_color}">
+            BUS ${v.route_id}
           </span>
           <span class="text-xs font-bold text-white">${v.vehicle_id}</span>
         </div>
@@ -568,9 +708,9 @@ function renderFleetList(vehicles) {
         </span>
       </div>
 
-      <div class="text-[11px] text-slate-400 flex items-center justify-between">
-        <span>Towards: <strong class="text-slate-300">${v.to_stop}</strong></span>
-        <span class="mono">${Math.round(v.speed_kmh)} km/h</span>
+      <div class="text-xs text-slate-400 flex items-center justify-between">
+        <span class="truncate mr-2">Towards: <strong class="text-slate-200">${v.to_stop}</strong></span>
+        <span class="mono shrink-0">${Math.round(v.speed_kmh)} km/h</span>
       </div>
     </div>
   `).join("");
@@ -590,7 +730,7 @@ async function openDeparturesModal(stopId) {
   if (!stop) return;
 
   document.getElementById("modal-stop-name").innerText = stop.name;
-  document.getElementById("modal-stop-id").innerText = `Stop ID: ${stop.id} (${stop.raw_id})`;
+  document.getElementById("modal-stop-id").innerText = `Stop #${stop.id}`;
   const list = document.getElementById("modal-departures-list");
   list.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">Loading scheduled buses...</div>`;
 
@@ -607,16 +747,16 @@ async function openDeparturesModal(stopId) {
     list.innerHTML = data.departures.map(d => `
       <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs">
-            BUS
-          </div>
+          <span class="px-2.5 py-1 rounded-lg text-xs font-black text-white shadow" style="background-color: ${d.route_color || '#4F46E5'}">
+            BUS ${d.route_id || 'Transit'}
+          </span>
           <div>
-            <p class="text-xs font-bold text-white font-mono">${d.departure_time}</p>
-            <span class="text-[10px] text-slate-500">Trip: ${d.trip_id.slice(-8)}</span>
+            <p class="text-xs font-bold text-white">${d.headsign || d.bus_name}</p>
+            <span class="text-[10px] text-slate-400 font-mono">Departs at ${d.departure_time}</span>
           </div>
         </div>
         <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${d.delay_sec > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}">
-          ${d.delay_sec > 0 ? `+${Math.round(d.delay_sec/60)}m delay` : 'On Time'}
+          ${d.delay_sec > 0 ? `+${Math.round(d.delay_sec/60)}m delay` : 'On Schedule'}
         </span>
       </div>
     `).join("");

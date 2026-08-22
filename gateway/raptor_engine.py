@@ -2,10 +2,11 @@ import math
 from typing import List, Dict, Any, Optional, Tuple
 
 class RaptorEngine:
-    def __init__(self, stops: List[Dict[str, Any]], raw_stop_times: List[Dict[str, Any]], routes_meta: Dict[str, Any]):
+    def __init__(self, stops: List[Dict[str, Any]], raw_stop_times: List[Dict[str, Any]], routes_meta: Dict[str, Any], trips_meta: Dict[str, Any]):
         self.stops = stops
         self.num_stops = len(stops)
         self.routes_meta = routes_meta
+        self.trips_meta = trips_meta
         self.stop_by_id = {s["id"]: s for s in stops}
 
         # Build Routes & Index
@@ -22,7 +23,7 @@ class RaptorEngine:
     def _build_footpaths(self):
         self.footpaths: Dict[int, List[Tuple[int, int, int]]] = {i: [] for i in range(self.num_stops)}
         max_dist = 500.0
-        walk_speed = 1.25 # m/s
+        walk_speed = 1.25  # ~4.5 km/h
 
         for i in range(self.num_stops):
             s1 = self.stops[i]
@@ -30,7 +31,6 @@ class RaptorEngine:
                 if i == j:
                     continue
                 s2 = self.stops[j]
-                # Quick bounding box filter (~500m is ~0.005 deg)
                 if abs(s1["lat"] - s2["lat"]) > 0.006 or abs(s1["lon"] - s2["lon"]) > 0.009:
                     continue
                 dist = self._haversine_meters(s1["lat"], s1["lon"], s2["lat"], s2["lon"])
@@ -66,10 +66,18 @@ class RaptorEngine:
             # Sort trips within route by departure time at first stop
             trips.sort(key=lambda st_list: st_list[0]["dep_sec"])
 
+            # Extract trip metadata for this route
+            first_trip_id = trips[0][0]["trip_id"]
+            first_trip_info = self.trips_meta.get(first_trip_id, {})
+            real_route_id = first_trip_info.get("route_id", f"{route_id + 1}")
+            headsign = first_trip_info.get("headsign", "")
+
             route_obj = {
                 "id": route_id,
+                "real_route_id": real_route_id,
+                "headsign": headsign,
                 "stops": list(seq),
-                "trips": trips, # list of stop_time lists
+                "trips": trips,
                 "num_stops": len(seq),
                 "num_trips": len(trips)
             }
@@ -88,6 +96,7 @@ class RaptorEngine:
         earliest_arrival = [INF] * self.num_stops
         parent_stop = [None] * self.num_stops
         parent_route = [None] * self.num_stops
+        parent_trip_idx = [None] * self.num_stops
         board_time = [0] * self.num_stops
         alight_time = [0] * self.num_stops
 
@@ -140,12 +149,12 @@ class RaptorEngine:
                             next_marked.add(s_id)
                             parent_stop[s_id] = board_stop_id
                             parent_route[s_id] = r_id
+                            parent_trip_idx[s_id] = current_trip_idx
                             board_time[s_id] = current_board_time
                             alight_time[s_id] = st["arr_sec"]
 
                     # Boarding check
                     if s_id in marked_stops and prev_arrival[s_id] != INF:
-                        # Binary search earliest trip with dep_sec >= prev_arrival[s_id]
                         trips = route["trips"]
                         low = 0
                         high = (current_trip_idx if current_trip_idx is not None else len(trips)) - 1
@@ -193,11 +202,43 @@ class RaptorEngine:
             visited.add(curr)
             b_id = parent_stop[curr]
             r_id = parent_route[curr]
+            t_idx = parent_trip_idx[curr]
+
+            real_route_id = "WALK"
+            headsign = ""
+            stops_count = 1
+            intermediate_stops = []
+
+            if r_id != "WALK" and r_id is not None:
+                route = self.routes[r_id]
+                real_route_id = route["real_route_id"]
+                headsign = route["headsign"]
+
+                if t_idx is not None and t_idx < len(route["trips"]):
+                    trip_id = route["trips"][t_idx][0]["trip_id"]
+                    trip_info = self.trips_meta.get(trip_id, {})
+                    if trip_info.get("route_id"):
+                        real_route_id = trip_info["route_id"]
+                    if trip_info.get("headsign"):
+                        headsign = trip_info["headsign"]
+
+                try:
+                    p_b = route["stops"].index(b_id)
+                    p_a = route["stops"].index(curr)
+                    if p_a > p_b:
+                        stops_count = p_a - p_b
+                        intermediate_stops = [self.stop_by_id.get(sid, {}).get("name", f"Stop {sid}") for sid in route["stops"][p_b:p_a+1]]
+                except ValueError:
+                    pass
 
             path.append({
                 "board_stop": b_id,
                 "alight_stop": curr,
                 "route_id": r_id,
+                "real_route_id": real_route_id,
+                "headsign": headsign,
+                "stops_count": stops_count,
+                "intermediate_stops": intermediate_stops,
                 "board_time": board_time[curr],
                 "alight_time": alight_time[curr]
             })

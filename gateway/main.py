@@ -15,8 +15,8 @@ from raptor_engine import RaptorEngine
 
 app = FastAPI(
     title="High-Performance Transit Routing Engine API",
-    description="Full-stack RAPTOR multi-modal transit engine with walking transfers, live GTFS-RT telemetry, and multi-departure itineraries.",
-    version="1.2.0"
+    description="Full-stack Passenger-Centric Transit Router with Walking Transfers, Live Bus Tracking, and Multi-Departure Schedules.",
+    version="2.0.0"
 )
 
 # Enable CORS
@@ -30,7 +30,7 @@ app.add_middleware(
 
 # Data & Routing Engines
 data_manager = GTFSDataManager()
-raptor_engine = RaptorEngine(data_manager.stops, data_manager.stop_times, data_manager.routes)
+raptor_engine = RaptorEngine(data_manager.stops, data_manager.stop_times, data_manager.routes, data_manager.trips)
 
 # WebSocket client manager
 class ConnectionManager:
@@ -62,8 +62,8 @@ live_vehicles: List[Dict[str, Any]] = []
 class RoutePlanRequest(BaseModel):
     source_stop: int
     target_stop: int
-    departure_time: Optional[Any] = None  # "08:47" or seconds
-    departure_date: Optional[str] = "today" # "today", "tomorrow"
+    departure_time: Optional[Any] = None
+    departure_date: Optional[str] = "today"
     num_options: Optional[int] = 3
 
 class StopDTO(BaseModel):
@@ -83,7 +83,7 @@ def serve_root():
     index_path = os.path.join(WEB_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"system": "Transit Engine", "version": "1.2.0", "status": "online"}
+    return {"system": "Transit Engine", "version": "2.0.0", "status": "online"}
 
 @app.get("/styles.css", include_in_schema=False)
 def serve_styles():
@@ -104,6 +104,13 @@ def health():
         "active_ws_clients": len(ws_manager.active_connections),
         "live_vehicles_count": len(live_vehicles)
     }
+
+@app.get("/api/nearest-stop")
+def get_nearest_stop(lat: float, lon: float):
+    stop = data_manager.find_nearest_stop(lat, lon)
+    if not stop:
+        raise HTTPException(status_code=404, detail="No nearby transit stop found")
+    return stop
 
 @app.get("/api/stops", response_model=List[StopDTO])
 def get_stops(q: Optional[str] = None, limit: int = 1000):
@@ -140,6 +147,41 @@ def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
         "departures": departures
     }
 
+def find_live_vehicle_for_route(route_id_str: str, board_stop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # Match an active vehicle on this route or nearest vehicle
+    target_v = None
+    for v in live_vehicles:
+        if str(v.get("route_id", "")).strip().lower() == route_id_str.strip().lower():
+            target_v = v
+            break
+    if not target_v and live_vehicles:
+        # Fallback to the closest vehicle
+        target_v = live_vehicles[0]
+
+    if not target_v or not board_stop:
+        return None
+
+    # Calculate distance from bus to boarding stop
+    d_lat = (target_v["lat"] - board_stop["lat"]) * 111320
+    d_lon = (target_v["lon"] - board_stop["lon"]) * 111320 * math.cos(math.radians(board_stop["lat"]))
+    dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
+    speed_mps = max(5.0, (target_v.get("speed_kmh", 35) * 1000 / 3600))
+    eta_mins = max(1, int(dist_m / speed_mps / 60))
+
+    return {
+        "vehicle_id": target_v["vehicle_id"],
+        "route_id": target_v["route_id"],
+        "route_color": target_v["route_color"],
+        "lat": target_v["lat"],
+        "lon": target_v["lon"],
+        "speed_kmh": round(target_v["speed_kmh"]),
+        "delay_sec": target_v["delay_sec"],
+        "delay_text": f"+{round(target_v['delay_sec']/60)}m delay" if target_v["delay_sec"] > 60 else "On Time",
+        "occupancy": target_v["occupancy"],
+        "distance_m": dist_m,
+        "eta_mins": eta_mins
+    }
+
 def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     t_start = time.perf_counter()
     raw_path = raptor_engine.plan_route(source_id, target_id, dep_sec)
@@ -160,20 +202,24 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
         is_walking = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
 
         if is_walking:
-            route_short_name = "Walk"
+            bus_number = "Walk"
+            bus_name = "Walk"
+            headsign = ""
+            action_title = f"Walk to {a_stop['name']}"
             route_color = "#06b6d4"
             route_text_color = "#FFFFFF"
+            live_vehicle = None
         else:
             transit_transfers += 1
-            r_id = str(leg["route_id"])
-            route_meta = data_manager.routes.get(r_id, {
-                "short_name": f"{leg['route_id']}",
-                "color": "#4F46E5",
-                "text_color": "#FFFFFF"
-            })
-            route_short_name = route_meta.get("short_name", f"{leg['route_id']}")
+            raw_rid = str(leg.get("real_route_id", "")).strip()
+            route_meta = data_manager.routes.get(raw_rid, {})
+            bus_number = route_meta.get("short_name", raw_rid) or raw_rid
+            headsign = leg.get("headsign", "")
+            bus_name = f"Bus {bus_number}" + (f" ({headsign})" if headsign else "")
+            action_title = f"Hop on Bus {bus_number}" + (f" - {headsign}" if headsign else "")
             route_color = route_meta.get("color", "#4F46E5")
             route_text_color = route_meta.get("text_color", "#FFFFFF")
+            live_vehicle = find_live_vehicle_for_route(bus_number, b_stop)
 
         if first_board is None:
             first_board = leg["board_time"]
@@ -187,24 +233,30 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
         d_lon = (a_stop["lon"] - b_stop["lon"]) * 111320 * math.cos(math.radians(b_stop["lat"]))
         dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
 
-        instruction = f"Walk {duration_mins} min ({dist_m}m) to {a_stop['name']}" if is_walking else f"Take Route {route_short_name} to {a_stop['name']}"
+        stops_count = leg.get("stops_count", 1)
+        ride_summary = f"Ride {stops_count} stop{'s' if stops_count > 1 else ''} (~{duration_mins} min)" if not is_walking else f"{dist_m}m walk"
 
         formatted_legs.append({
             "leg_index": i + 1,
             "is_walking": is_walking,
-            "route_id": leg["route_id"],
-            "route_short_name": route_short_name,
+            "bus_number": bus_number,
+            "bus_name": bus_name,
+            "headsign": headsign,
+            "action_title": action_title,
             "route_color": route_color,
             "route_text_color": route_text_color,
             "board_stop": b_stop,
             "alight_stop": a_stop,
+            "stops_count": stops_count,
+            "ride_summary": ride_summary,
+            "intermediate_stops": leg.get("intermediate_stops", []),
             "board_time_sec": leg["board_time"],
             "board_time_formatted": data_manager.sec_to_hms(leg["board_time"]),
             "alight_time_sec": leg["alight_time"],
             "alight_time_formatted": data_manager.sec_to_hms(leg["alight_time"]),
             "duration_mins": duration_mins,
             "distance_m": dist_m,
-            "instruction": instruction,
+            "live_vehicle": live_vehicle,
             "geometry": [
                 [b_stop.get("lat", 0.0), b_stop.get("lon", 0.0)],
                 [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
@@ -216,9 +268,11 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     total_duration_mins = max(1, (last_alight - first_board) // 60)
 
     first_bus_sec = None
+    first_bus_label = "Direct Transit"
     for leg in formatted_legs:
         if not leg["is_walking"]:
             first_bus_sec = leg["board_time_sec"]
+            first_bus_label = f"Bus {leg['bus_number']}"
             break
 
     option = {
@@ -226,6 +280,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
         "arrival_time": data_manager.sec_to_hms(last_alight),
         "total_duration_mins": total_duration_mins,
         "bus_transfers": max(0, transit_transfers - 1),
+        "first_bus_label": first_bus_label,
         "departure_sec": first_board,
         "first_bus_sec": first_bus_sec or (first_board + 300),
         "itinerary": formatted_legs
@@ -277,7 +332,7 @@ def plan_route(req: RoutePlanRequest):
     if not options:
         return {
             "success": False,
-            "message": "No transit connections found for this time window. Try selecting another time.",
+            "message": "No bus connections found for this time window. Try selecting another time or nearby stops.",
             "source": source,
             "target": target,
             "departure_date": req.departure_date or "today",
@@ -310,40 +365,47 @@ async def telemetry_background_worker():
     if not stops:
         return
 
-    num_vehicles = min(15, len(stops) - 5)
+    # Real bus route numbers in Thunder Bay
+    active_bus_lines = ["1", "2", "3C", "3J", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+    num_vehicles = min(len(active_bus_lines), len(stops) - 5)
     vehicles = []
+
     for i in range(num_vehicles):
-        s_from = stops[i * 10 % len(stops)]
-        s_to = stops[(i * 10 + 5) % len(stops)]
+        rid = active_bus_lines[i]
+        route_meta = data_manager.routes.get(rid, {})
+        color = route_meta.get("color", ["#EF4135", "#13B5EA", "#BF4F9D", "#00B259", "#F26531", "#9C0059", "#8DC63F", "#E58E1A"][i % 8])
+        s_from = stops[(i * 25) % len(stops)]
+        s_to = stops[(i * 25 + 8) % len(stops)]
+
         vehicles.append({
-            "vehicle_id": f"BUS-{101 + i}",
-            "route_id": f"{(i % 8) + 1}",
-            "route_color": ["#EF4135", "#13B5EA", "#BF4F9D", "#00B259", "#F26531", "#9C0059", "#8DC63F", "#E58E1A"][i % 8],
+            "vehicle_id": f"BUS-{200 + i}",
+            "route_id": rid,
+            "route_color": color,
             "from_stop": s_from["name"],
             "to_stop": s_to["name"],
             "lat": s_from["lat"],
             "lon": s_from["lon"],
             "target_lat": s_to["lat"],
             "target_lon": s_to["lon"],
-            "progress": (i * 0.1) % 1.0,
-            "speed_kmh": 35.0 + (i % 15),
-            "delay_sec": (i * 45) % 300,
-            "occupancy": ["EMPTY", "MANY_SEATS_AVAILABLE", "FEW_SEATS_AVAILABLE", "STANDING_ROOM_ONLY"][i % 4]
+            "progress": (i * 0.12) % 1.0,
+            "speed_kmh": 32.0 + (i % 14),
+            "delay_sec": (i * 30) % 240,
+            "occupancy": ["SEATS_AVAILABLE", "SEATS_AVAILABLE", "STANDING_ROOM_ONLY", "EMPTY"][i % 4]
         })
 
     while True:
         try:
             for v in vehicles:
-                v["progress"] += 0.02
+                v["progress"] += 0.015
                 if v["progress"] >= 1.0:
                     v["progress"] = 0.0
                     idx = (int(v["vehicle_id"].split("-")[1]) + int(time.time())) % len(stops)
                     v["from_stop"] = stops[idx]["name"]
-                    v["to_stop"] = stops[(idx + 4) % len(stops)]["name"]
+                    v["to_stop"] = stops[(idx + 6) % len(stops)]["name"]
                     v["lat"] = stops[idx]["lat"]
                     v["lon"] = stops[idx]["lon"]
-                    v["target_lat"] = stops[(idx + 4) % len(stops)]["lat"]
-                    v["target_lon"] = stops[(idx + 4) % len(stops)]["lon"]
+                    v["target_lat"] = stops[(idx + 6) % len(stops)]["lat"]
+                    v["target_lon"] = stops[(idx + 6) % len(stops)]["lon"]
                 else:
                     p = v["progress"]
                     v["current_lat"] = v["lat"] + (v["target_lat"] - v["lat"]) * p
