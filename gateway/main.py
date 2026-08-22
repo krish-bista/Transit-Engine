@@ -5,6 +5,8 @@ import asyncio
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import grpc
 
@@ -14,11 +16,11 @@ from gtfs_data import GTFSDataManager
 
 app = FastAPI(
     title="High-Performance Transit Routing Engine API",
-    description="Full-stack C++20 RAPTOR transit engine with live GTFS-RT telemetry and real-time mapping.",
-    version="1.0.0"
+    description="Full-stack C++20 RAPTOR transit engine with multi-modal footpaths, live GTFS-RT telemetry, and range options.",
+    version="1.1.0"
 )
 
-# Enable CORS for web frontend (localhost, Vite dev server, production URLs)
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -66,7 +68,9 @@ def get_grpc_stub():
 class RoutePlanRequest(BaseModel):
     source_stop: int
     target_stop: int
-    departure_time: Optional[Any] = None  # seconds past midnight or "HH:MM"
+    departure_time: Optional[Any] = None  # "08:47" or seconds
+    departure_date: Optional[str] = "today" # "today", "tomorrow", "YYYY-MM-DD"
+    num_options: Optional[int] = 3
 
 class StopDTO(BaseModel):
     id: int
@@ -75,10 +79,7 @@ class StopDTO(BaseModel):
     lon: float
     raw_id: str
 
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-
-# Web Directory
+# Web Directory Static Files
 WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
 if os.path.exists(WEB_DIR):
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -90,7 +91,7 @@ def serve_root():
         return FileResponse(index_path)
     return {
         "system": "Transit Engine",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "status": "online",
         "stops_loaded": len(data_manager.stops),
         "routes_loaded": len(data_manager.routes)
@@ -109,7 +110,6 @@ def health():
     engine_ok = False
     try:
         stub = get_grpc_stub()
-        # Ping with zero-cost self query
         resp = stub.GetEarliestArrival(
             routing_pb2.RouteRequest(source_stop=0, target_stop=0, departure_time=36000),
             timeout=1.0
@@ -149,13 +149,10 @@ def get_routes():
 @app.get("/api/stops/{stop_id}/departures")
 def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
     if time_sec is None:
-        # Default to simulated current time (e.g., 08:30 = 30600s)
-        time_sec = 30600
+        time_sec = 30600 # 08:30 default
     departures = data_manager.get_upcoming_departures(stop_id, time_sec)
-    # Inject live delay if available
     for dep in departures:
         tid = dep["trip_id"]
-        # Match integer trip if available
         if tid in live_delays:
             dep["delay_sec"] = live_delays[tid].get("delay", 0)
     return {
@@ -164,14 +161,114 @@ def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
         "departures": departures
     }
 
+def calculate_single_itinerary(stub, source_id: int, target_id: int, dep_sec: int):
+    t_start = time.perf_counter()
+    try:
+        grpc_req = routing_pb2.RouteRequest(
+            source_stop=source_id,
+            target_stop=target_id,
+            departure_time=dep_sec
+        )
+        grpc_resp = stub.GetEarliestArrival(grpc_req, timeout=1.5)
+    except Exception as e:
+        return None, (time.perf_counter() - t_start) * 1000.0
+
+    latency_ms = (time.perf_counter() - t_start) * 1000.0
+
+    if not grpc_resp.success or len(grpc_resp.itinerary) == 0:
+        return None, latency_ms
+
+    formatted_legs = []
+    first_board = None
+    last_alight = None
+    transit_transfers = 0
+
+    for i, leg in enumerate(grpc_resp.itinerary):
+        b_stop = data_manager.get_stop(leg.board_stop) or {"id": leg.board_stop, "name": f"Stop {leg.board_stop}", "lat": 0, "lon": 0}
+        a_stop = data_manager.get_stop(leg.alight_stop) or {"id": leg.alight_stop, "name": f"Stop {leg.alight_stop}", "lat": 0, "lon": 0}
+        
+        is_walking = (leg.route_id >= 0xFFFFFFFE)
+        r_id = str(leg.route_id)
+        
+        if is_walking:
+            route_short_name = "Walk"
+            route_color = "#64748B"
+            route_text_color = "#FFFFFF"
+        else:
+            transit_transfers += 1
+            route_meta = data_manager.routes.get(r_id, {
+                "short_name": f"{leg.route_id}",
+                "color": "#4F46E5",
+                "text_color": "#FFFFFF"
+            })
+            route_short_name = route_meta.get("short_name", f"{leg.route_id}")
+            route_color = route_meta.get("color", "#4F46E5")
+            route_text_color = route_meta.get("text_color", "#FFFFFF")
+
+        if first_board is None:
+            first_board = leg.board_time
+        last_alight = leg.alight_time
+
+        duration_sec = max(0, leg.alight_time - leg.board_time)
+        duration_mins = max(1, duration_sec // 60)
+
+        # Distance estimation
+        import math
+        d_lat = (a_stop["lat"] - b_stop["lat"]) * 111320
+        d_lon = (a_stop["lon"] - b_stop["lon"]) * 111320 * math.cos(math.radians(b_stop["lat"]))
+        dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
+
+        instruction = f"Walk {duration_mins} min ({dist_m}m) to {a_stop['name']}" if is_walking else f"Take Route {route_short_name} to {a_stop['name']}"
+
+        formatted_legs.append({
+            "leg_index": i + 1,
+            "is_walking": is_walking,
+            "route_id": leg.route_id,
+            "route_short_name": route_short_name,
+            "route_color": route_color,
+            "route_text_color": route_text_color,
+            "board_stop": b_stop,
+            "alight_stop": a_stop,
+            "board_time_sec": leg.board_time,
+            "board_time_formatted": data_manager.sec_to_hms(leg.board_time),
+            "alight_time_sec": leg.alight_time,
+            "alight_time_formatted": data_manager.sec_to_hms(leg.alight_time),
+            "duration_mins": duration_mins,
+            "distance_m": dist_m,
+            "instruction": instruction,
+            "geometry": [
+                [b_stop.get("lat", 0.0), b_stop.get("lon", 0.0)],
+                [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
+            ]
+        })
+
+    first_board = formatted_legs[0]["board_time_sec"] if formatted_legs else dep_sec
+    last_alight = formatted_legs[-1]["alight_time_sec"] if formatted_legs else dep_sec
+    total_duration_mins = max(1, (last_alight - first_board) // 60)
+
+    # First transit bus boarding time
+    first_bus_sec = None
+    for leg in formatted_legs:
+        if not leg["is_walking"]:
+            first_bus_sec = leg["board_time_sec"]
+            break
+
+    option = {
+        "departure_time": data_manager.sec_to_hms(first_board),
+        "arrival_time": data_manager.sec_to_hms(last_alight),
+        "total_duration_mins": total_duration_mins,
+        "bus_transfers": max(0, transit_transfers - 1),
+        "departure_sec": first_board,
+        "first_bus_sec": first_bus_sec or (first_board + 300),
+        "itinerary": formatted_legs
+    }
+    return option, latency_ms
+
 @app.post("/api/route")
 def plan_route(req: RoutePlanRequest):
-    t_start = time.perf_counter()
-    
-    # Parse departure time
     dep_sec = 0
     if req.departure_time is None:
-        dep_sec = 30000  # Default 08:20
+        dep_sec = 31620  # Default 08:47 AM
     elif isinstance(req.departure_time, str) and ":" in req.departure_time:
         dep_sec = data_manager.hms_to_sec(req.departure_time)
     else:
@@ -184,84 +281,61 @@ def plan_route(req: RoutePlanRequest):
 
     try:
         stub = get_grpc_stub()
-        grpc_req = routing_pb2.RouteRequest(
-            source_stop=req.source_stop,
-            target_stop=req.target_stop,
-            departure_time=dep_sec
-        )
-        grpc_resp = stub.GetEarliestArrival(grpc_req, timeout=3.0)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"C++ Engine gRPC error: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"C++ Engine gRPC connection error: {str(e)}")
 
-    engine_latency_ms = (time.perf_counter() - t_start) * 1000.0
+    options = []
+    total_latency_ms = 0.0
+    current_search_dep = dep_sec
+    num_options = min(5, max(1, req.num_options or 3))
 
-    if not grpc_resp.success or len(grpc_resp.itinerary) == 0:
+    seen_departure_times = set()
+
+    for _ in range(num_options + 5):
+        if len(options) >= num_options:
+            break
+
+        opt, latency = calculate_single_itinerary(stub, req.source_stop, req.target_stop, current_search_dep)
+        total_latency_ms += latency
+
+        if not opt:
+            current_search_dep += 15 * 60
+            if current_search_dep > dep_sec + 4 * 3600:
+                break
+            continue
+
+        dep_key = (opt["departure_time"], opt["arrival_time"])
+        if dep_key not in seen_departure_times:
+            seen_departure_times.add(dep_key)
+            options.append(opt)
+
+        # Advance search window past the boarded bus trip
+        current_search_dep = max(current_search_dep + 120, opt["first_bus_sec"] + 60)
+
+    if not options:
         return {
             "success": False,
-            "message": "No direct transit route found for this departure time. Try selecting an earlier departure.",
+            "message": "No transit connections found for this time window. Try selecting another time.",
             "source": source,
             "target": target,
+            "departure_date": req.departure_date or "today",
             "departure_time": data_manager.sec_to_hms(dep_sec),
-            "engine_latency_ms": round(engine_latency_ms, 3),
-            "itinerary": []
+            "engine_latency_ms": round(total_latency_ms, 3),
+            "options": []
         }
-
-    formatted_legs = []
-    total_travel_sec = 0
-    first_board = None
-    last_alight = None
-
-    for i, leg in enumerate(grpc_resp.itinerary):
-        b_stop = data_manager.get_stop(leg.board_stop) or {"id": leg.board_stop, "name": f"Stop {leg.board_stop}", "lat": 0, "lon": 0}
-        a_stop = data_manager.get_stop(leg.alight_stop) or {"id": leg.alight_stop, "name": f"Stop {leg.alight_stop}", "lat": 0, "lon": 0}
-        
-        r_id = str(leg.route_id)
-        route_meta = data_manager.routes.get(r_id, {
-            "short_name": f"Route {r_id}",
-            "color": "#2563EB",
-            "text_color": "#FFFFFF"
-        })
-
-        if first_board is None:
-            first_board = leg.board_time
-        last_alight = leg.alight_time
-
-        duration_sec = max(0, leg.alight_time - leg.board_time)
-        
-        # Coordinates geometry for map polyline
-        geometry = [
-            [b_stop.get("lat", 0.0), b_stop.get("lon", 0.0)],
-            [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
-        ]
-
-        formatted_legs.append({
-            "leg_index": i + 1,
-            "route_id": leg.route_id,
-            "route_short_name": route_meta.get("short_name", f"{leg.route_id}"),
-            "route_color": route_meta.get("color", "#2563EB"),
-            "route_text_color": route_meta.get("text_color", "#FFFFFF"),
-            "board_stop": b_stop,
-            "alight_stop": a_stop,
-            "board_time_sec": leg.board_time,
-            "board_time_formatted": data_manager.sec_to_hms(leg.board_time),
-            "alight_time_sec": leg.alight_time,
-            "alight_time_formatted": data_manager.sec_to_hms(leg.alight_time),
-            "duration_mins": max(1, duration_sec // 60),
-            "geometry": geometry
-        })
-
-    total_duration_mins = max(1, (last_alight - first_board) // 60) if (first_board and last_alight) else 0
 
     return {
         "success": True,
         "source": source,
         "target": target,
-        "departure_time": data_manager.sec_to_hms(first_board or dep_sec),
-        "arrival_time": data_manager.sec_to_hms(last_alight or dep_sec),
-        "total_duration_mins": total_duration_mins,
-        "transfers": max(0, len(formatted_legs) - 1),
-        "engine_latency_ms": round(engine_latency_ms, 3),
-        "itinerary": formatted_legs
+        "departure_date": req.departure_date or "today",
+        "departure_time": data_manager.sec_to_hms(dep_sec),
+        "engine_latency_ms": round(total_latency_ms, 3),
+        "options_count": len(options),
+        "options": options,
+        "itinerary": options[0]["itinerary"],
+        "total_duration_mins": options[0]["total_duration_mins"],
+        "arrival_time": options[0]["arrival_time"]
     }
 
 @app.get("/api/live/vehicles")
@@ -270,12 +344,10 @@ def get_live_vehicles():
 
 # Real-time Background Vehicle Simulator & Telemetry Broadcaster
 async def telemetry_background_worker():
-    import math
     stops = data_manager.stops
     if not stops:
         return
 
-    # Seed 15 simulated vehicles operating along stops
     num_vehicles = min(15, len(stops) - 5)
     vehicles = []
     for i in range(num_vehicles):
@@ -299,12 +371,10 @@ async def telemetry_background_worker():
 
     while True:
         try:
-            # Update positions smoothly
             for v in vehicles:
                 v["progress"] += 0.02
                 if v["progress"] >= 1.0:
                     v["progress"] = 0.0
-                    # Swap or advance to next stop
                     idx = (int(v["vehicle_id"].split("-")[1]) + int(time.time())) % len(stops)
                     v["from_stop"] = stops[idx]["name"]
                     v["to_stop"] = stops[(idx + 4) % len(stops)]["name"]
@@ -313,12 +383,10 @@ async def telemetry_background_worker():
                     v["target_lat"] = stops[(idx + 4) % len(stops)]["lat"]
                     v["target_lon"] = stops[(idx + 4) % len(stops)]["lon"]
                 else:
-                    # Linear interpolation
                     p = v["progress"]
                     v["current_lat"] = v["lat"] + (v["target_lat"] - v["lat"]) * p
                     v["current_lon"] = v["lon"] + (v["target_lon"] - v["lon"]) * p
 
-            # Update global state
             global live_vehicles
             live_vehicles = [
                 {
@@ -336,7 +404,6 @@ async def telemetry_background_worker():
                 for v in vehicles
             ]
 
-            # Broadcast to WebSockets
             if ws_manager.active_connections:
                 payload = {
                     "type": "VEHICLE_POSITIONS",
@@ -345,7 +412,7 @@ async def telemetry_background_worker():
                 }
                 await ws_manager.broadcast(payload)
 
-        except Exception as e:
+        except Exception:
             pass
 
         await asyncio.sleep(1.5)
@@ -358,7 +425,6 @@ async def startup_event():
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.connect(websocket)
     try:
-        # Send initial snapshot immediately
         await websocket.send_json({
             "type": "SNAPSHOT",
             "timestamp": time.time(),

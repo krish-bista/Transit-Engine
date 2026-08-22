@@ -6,6 +6,7 @@
 namespace transit {
 
 static constexpr uint32_t INF = 0xFFFFFFFF;
+static constexpr uint32_t FOOTPATH_ROUTE_ID = 0xFFFFFFFE; // Marker for walking leg
 
 RaptorRouter::RaptorRouter(const RaptorGraph& graph) : graph_(graph) {}
 
@@ -35,6 +36,25 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
 
     std::vector<bool> marked_stops(num_stops, false);
     marked_stops[source_stop] = true;
+
+    // Initial Footpaths from source_stop
+    if (source_stop < graph_.footpath_offsets.size() - 1) {
+        const uint32_t fp_begin = graph_.footpath_offsets[source_stop];
+        const uint32_t fp_end   = graph_.footpath_offsets[source_stop + 1];
+        for (uint32_t i = fp_begin; i < fp_end; ++i) {
+            const auto& fp = graph_.footpaths[i];
+            uint32_t walk_arr = departure_time + fp.duration_sec;
+            if (walk_arr < earliest_arrival[fp.to_stop]) {
+                earliest_arrival[fp.to_stop] = walk_arr;
+                marked_stops[fp.to_stop] = true;
+
+                parent_stop_[fp.to_stop] = source_stop;
+                parent_route_[fp.to_stop] = FOOTPATH_ROUTE_ID;
+                board_time_[fp.to_stop] = departure_time;
+                alight_time_[fp.to_stop] = walk_arr;
+            }
+        }
+    }
 
     // Loop for K=4 rounds (up to 4 transfers)
     constexpr int MAX_ROUNDS = 4;
@@ -95,21 +115,61 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
                     }
                 }
 
-                // 2. Can we board a trip or an earlier trip at stop_id?
+                // 2. Binary search earliest departing trip >= prev_arrival[stop_id]
                 if (marked_stops[stop_id] && prev_arrival[stop_id] != INF) {
-                    const uint32_t max_trip_to_check = (current_trip == INF) ? route.num_trips : current_trip;
-                    for (uint32_t t = 0; t < max_trip_to_check; ++t) {
-                        const size_t st_idx = route.stop_times_offset +
-                                              static_cast<size_t>(t) * route.num_stops + p;
-                        const auto& st = graph_.stop_times[st_idx];
+                    int low = 0;
+                    int high = (current_trip == INF) ? static_cast<int>(route.num_trips) - 1
+                                                     : static_cast<int>(current_trip) - 1;
+                    int best_t = -1;
 
-                        if (st.dep_sec >= prev_arrival[stop_id]) {
-                            current_trip = t;
-                            board_stop_id = stop_id;
-                            current_board_time = st.dep_sec;
-                            break;
+                    while (low <= high) {
+                        int mid = low + (high - low) / 2;
+                        const size_t st_idx = route.stop_times_offset +
+                                              static_cast<size_t>(mid) * route.num_stops + p;
+                        if (graph_.stop_times[st_idx].dep_sec >= prev_arrival[stop_id]) {
+                            best_t = mid;
+                            high = mid - 1;
+                        } else {
+                            low = mid + 1;
                         }
                     }
+
+                    if (best_t != -1) {
+                        current_trip = static_cast<uint32_t>(best_t);
+                        board_stop_id = stop_id;
+                        const size_t st_idx = route.stop_times_offset +
+                                              static_cast<size_t>(best_t) * route.num_stops + p;
+                        current_board_time = graph_.stop_times[st_idx].dep_sec;
+                    }
+                }
+            }
+        }
+
+        // Step 3: Multi-modal Footpath Transfers between nearby stops (NO chained footpaths)
+        std::vector<uint32_t> bus_alighted_stops;
+        for (uint32_t s = 0; s < num_stops; ++s) {
+            if (next_marked[s] && parent_route_[s] != FOOTPATH_ROUTE_ID) {
+                bus_alighted_stops.push_back(s);
+            }
+        }
+
+        for (uint32_t u : bus_alighted_stops) {
+            if (u >= graph_.footpath_offsets.size() - 1) continue;
+            const uint32_t fp_begin = graph_.footpath_offsets[u];
+            const uint32_t fp_end   = graph_.footpath_offsets[u + 1];
+
+            for (uint32_t i = fp_begin; i < fp_end; ++i) {
+                const auto& fp = graph_.footpaths[i];
+                uint32_t walk_arr = earliest_arrival[u] + fp.duration_sec;
+
+                if (walk_arr < earliest_arrival[fp.to_stop]) {
+                    earliest_arrival[fp.to_stop] = walk_arr;
+                    next_marked[fp.to_stop] = true;
+
+                    parent_stop_[fp.to_stop] = u;
+                    parent_route_[fp.to_stop] = FOOTPATH_ROUTE_ID;
+                    board_time_[fp.to_stop] = earliest_arrival[u];
+                    alight_time_[fp.to_stop] = walk_arr;
                 }
             }
         }
@@ -142,7 +202,12 @@ std::vector<RaptorRouter::Leg> RaptorRouter::reconstruct_path(uint32_t target_st
 
     uint32_t curr = target_stop;
     size_t iterations = 0;
+    std::vector<bool> visited(num_stops, false);
+
     while (curr != source_stop_ && parent_stop_[curr] != INF && parent_route_[curr] != INF && iterations < num_stops) {
+        if (visited[curr]) break; // prevent cycles
+        visited[curr] = true;
+
         RaptorRouter::Leg leg;
         leg.board_stop = parent_stop_[curr];
         leg.alight_stop = curr;

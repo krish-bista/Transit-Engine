@@ -109,6 +109,8 @@ class GTFSDataManager:
             parts = [int(p) for p in str(hms_str).strip().split(":")]
             if len(parts) == 3:
                 return parts[0] * 3600 + parts[1] * 60 + parts[2]
+            elif len(parts) == 2:
+                return parts[0] * 3600 + parts[1] * 60
             return 0
         except Exception:
             return 0

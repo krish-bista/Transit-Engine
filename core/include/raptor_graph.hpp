@@ -3,6 +3,7 @@
 
 #include "transit_data.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <map>
@@ -21,6 +22,14 @@ struct Route {
   uint32_t num_trips;
   uint32_t route_stops_offset;
   uint32_t stop_times_offset;
+};
+
+// ── Footpath transfer between nearby stops ───────────────────────────────────
+
+struct Footpath {
+  uint32_t to_stop;
+  uint32_t duration_sec;
+  uint32_t distance_m;
 };
 
 // ── Data-Oriented graph index for RAPTOR ────────────────────────────────────
@@ -42,6 +51,22 @@ public:
   // Route descriptors
   std::vector<Route> routes;
 
+  // Walking transfers between nearby stops (CSR representation)
+  std::vector<uint32_t> footpath_offsets;
+  std::vector<Footpath> footpaths;
+
+  static double haversine_meters(double lat1, double lon1, double lat2, double lon2) {
+    constexpr double R = 6371000.0;
+    constexpr double PI = 3.14159265358979323846;
+    double dLat = (lat2 - lat1) * PI / 180.0;
+    double dLon = (lon2 - lon1) * PI / 180.0;
+    double a = std::sin(dLat / 2.0) * std::sin(dLat / 2.0) +
+               std::cos(lat1 * PI / 180.0) * std::cos(lat2 * PI / 180.0) *
+               std::sin(dLon / 2.0) * std::sin(dLon / 2.0);
+    double c = 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
+    return R * c;
+  }
+
   /// Builds the Data-Oriented RAPTOR graph index from raw stops and stop_times.
   void build_index(std::vector<PackedStop> &&raw_stops,
                    std::vector<PackedStopTime> &&raw_stop_times) {
@@ -53,6 +78,8 @@ public:
     route_stops.clear();
     stop_routes.clear();
     stop_routes_offsets.clear();
+    footpaths.clear();
+    footpath_offsets.clear();
 
     // 1. Group by Trip: sort by trip_id, then stop_sequence
     std::sort(raw_stop_times.begin(), raw_stop_times.end(),
@@ -134,8 +161,36 @@ public:
     }
     stop_routes_offsets[stops.size()] = current_offset;
 
-    // 5. Print Stats
-    std::cout << "Generated " << routes.size() << " unique RAPTOR routes.\n";
+    // 5. Build Spatial Walking Transfers (Footpaths within 500 meters)
+    std::vector<std::vector<Footpath>> adj_footpaths(stops.size());
+    constexpr double MAX_WALK_DIST_M = 500.0;
+    constexpr double WALK_SPEED_MPS = 1.25; // ~4.5 km/h
+
+    for (size_t i = 0; i < stops.size(); ++i) {
+      for (size_t j = 0; j < stops.size(); ++j) {
+        if (i == j) continue;
+        double dist = haversine_meters(stops[i].lat, stops[i].lon, stops[j].lat, stops[j].lon);
+        if (dist <= MAX_WALK_DIST_M) {
+          uint32_t duration_sec = static_cast<uint32_t>(dist / WALK_SPEED_MPS);
+          adj_footpaths[i].push_back({static_cast<uint32_t>(j), duration_sec, static_cast<uint32_t>(dist)});
+        }
+      }
+    }
+
+    footpath_offsets.resize(stops.size() + 1, 0);
+    uint32_t fp_offset = 0;
+    for (size_t s = 0; s < stops.size(); ++s) {
+      footpath_offsets[s] = fp_offset;
+      for (const auto &fp : adj_footpaths[s]) {
+        footpaths.push_back(fp);
+      }
+      fp_offset += static_cast<uint32_t>(adj_footpaths[s].size());
+    }
+    footpath_offsets[stops.size()] = fp_offset;
+
+    // 6. Print Stats
+    std::cout << "Generated " << routes.size() << " unique RAPTOR routes and "
+              << footpaths.size() << " multi-modal walking footpaths.\n";
   }
 };
 
