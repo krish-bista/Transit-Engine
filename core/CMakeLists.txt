@@ -10,8 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ── Dependencies ─────────────────────────────
-find_package(Protobuf CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
+find_package(gRPC CONFIG QUIET)
 
 # ── Locate protoc and grpc_cpp_plugin ────────
 find_program(_PROTOBUF_PROTOC protoc)

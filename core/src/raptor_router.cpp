@@ -36,9 +36,10 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
     std::vector<bool> marked_stops(num_stops, false);
     marked_stops[source_stop] = true;
 
-    // Loop for K=4 rounds (Max transfers)
+    // Loop for K=4 rounds (up to 4 transfers)
     constexpr int MAX_ROUNDS = 4;
     for (int k = 0; k < MAX_ROUNDS; ++k) {
+        auto prev_arrival = earliest_arrival;
         std::vector<bool> next_marked(num_stops, false);
         std::vector<uint32_t> route_boarding(graph_.routes.size(), INF);
 
@@ -77,7 +78,7 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
             for (uint32_t p = route_boarding[r_id]; p < route.num_stops; ++p) {
                 const uint32_t stop_id = graph_.route_stops[route.route_stops_offset + p];
 
-                // If on a trip, evaluate arrival time at current stop
+                // 1. Can we alight at stop_id on the current trip?
                 if (current_trip != INF) {
                     const size_t st_idx = route.stop_times_offset +
                                           static_cast<size_t>(current_trip) * route.num_stops + p;
@@ -94,29 +95,15 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
                     }
                 }
 
-                // If this stop was marked (or we're not on a trip yet), check if we can board a trip / earlier trip
-                if (marked_stops[stop_id] && earliest_arrival[stop_id] != INF) {
-                    for (uint32_t t = 0; t < route.num_trips; ++t) {
+                // 2. Can we board a trip or an earlier trip at stop_id?
+                if (marked_stops[stop_id] && prev_arrival[stop_id] != INF) {
+                    const uint32_t max_trip_to_check = (current_trip == INF) ? route.num_trips : current_trip;
+                    for (uint32_t t = 0; t < max_trip_to_check; ++t) {
                         const size_t st_idx = route.stop_times_offset +
                                               static_cast<size_t>(t) * route.num_stops + p;
                         const auto& st = graph_.stop_times[st_idx];
 
-                        if (st.dep_sec >= earliest_arrival[stop_id]) {
-                            if (current_trip == INF || t < current_trip) {
-                                current_trip = t;
-                                board_stop_id = stop_id;
-                                current_board_time = st.dep_sec;
-                            }
-                            break; // First matching trip is the earliest departing
-                        }
-                    }
-                } else if (current_trip == INF && earliest_arrival[stop_id] != INF) {
-                    for (uint32_t t = 0; t < route.num_trips; ++t) {
-                        const size_t st_idx = route.stop_times_offset +
-                                              static_cast<size_t>(t) * route.num_stops + p;
-                        const auto& st = graph_.stop_times[st_idx];
-
-                        if (st.dep_sec >= earliest_arrival[stop_id]) {
+                        if (st.dep_sec >= prev_arrival[stop_id]) {
                             current_trip = t;
                             board_stop_id = stop_id;
                             current_board_time = st.dep_sec;

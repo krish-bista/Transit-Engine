@@ -3,11 +3,14 @@ package com.transitengine.client
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,22 +65,20 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ── Source stop autocomplete ────────────────────────
-            StopAutocomplete(
-                query = viewModel.sourceQuery,
-                onQueryChange = viewModel::onSourceQueryChanged,
+            // ── Source stop picker ──────────────────────────────
+            StopPickerField(
+                label = "Source Stop",
+                selectedStop = viewModel.selectedSource,
                 stops = viewModel.stops,
-                onSelected = viewModel::onSourceSelected,
-                label = "Source Stop"
+                onSelected = viewModel::onSourceSelected
             )
 
-            // ── Target stop autocomplete ───────────────────────
-            StopAutocomplete(
-                query = viewModel.targetQuery,
-                onQueryChange = viewModel::onTargetQueryChanged,
+            // ── Target stop picker ─────────────────────────────
+            StopPickerField(
+                label = "Target Stop",
+                selectedStop = viewModel.selectedTarget,
                 stops = viewModel.stops,
-                onSelected = viewModel::onTargetSelected,
-                label = "Target Stop"
+                onSelected = viewModel::onTargetSelected
             )
 
             // ── Departure time picker ──────────────────────────
@@ -126,7 +127,7 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
             // ── Itinerary cards ────────────────────────────────
             if (viewModel.legs.isNotEmpty()) {
                 Text(
-                    text = "Itinerary",
+                    text = "Itinerary (${viewModel.legs.size} leg${if (viewModel.legs.size > 1) "s" else ""})",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 4.dp)
@@ -149,63 +150,107 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
     }
 }
 
-// ── Stop Autocomplete ──────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
+// ── Searchable Stop Picker Field ───────────────────────────────
 @Composable
-fun StopAutocomplete(
-    query: String,
-    onQueryChange: (String) -> Unit,
+fun StopPickerField(
+    label: String,
+    selectedStop: Stop?,
     stops: List<Stop>,
-    onSelected: (Stop) -> Unit,
-    label: String
+    onSelected: (Stop) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
 
-    val filtered = remember(query, stops) {
-        if (query.isBlank()) {
-            stops.take(50)
+    OutlinedTextField(
+        value = selectedStop?.name ?: "Tap to select $label",
+        onValueChange = {},
+        label = { Text(label) },
+        readOnly = true,
+        singleLine = true,
+        trailingIcon = {
+            IconButton(onClick = { showDialog = true }) {
+                Icon(Icons.Outlined.Search, contentDescription = "Search stop")
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true }
+    )
+
+    if (showDialog) {
+        StopSelectionDialog(
+            title = "Select $label",
+            stops = stops,
+            onDismiss = { showDialog = false },
+            onSelected = {
+                onSelected(it)
+                showDialog = false
+            }
+        )
+    }
+}
+
+// ── Stop Selection Dialog with fast filtering ─────────────────
+@Composable
+fun StopSelectionDialog(
+    title: String,
+    stops: List<Stop>,
+    onDismiss: () -> Unit,
+    onSelected: (Stop) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredStops = remember(searchQuery, stops) {
+        if (searchQuery.isBlank()) {
+            stops.take(20)
         } else {
-            stops.filter {
-                it.name.contains(query, ignoreCase = true)
-            }.take(50)
+            stops.filter { it.name.contains(searchQuery, ignoreCase = true) }.take(20)
         }
     }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = {
-                onQueryChange(it)
-                expanded = true
-            },
-            label = { Text(label) },
-            singleLine = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryEditable)
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded && filtered.isNotEmpty(),
-            onDismissRequest = { expanded = false }
-        ) {
-            filtered.forEach { stop ->
-                DropdownMenuItem(
-                    text = { Text(stop.name) },
-                    onClick = {
-                        onSelected(stop)
-                        expanded = false
-                    },
-                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        title = { Text(title) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(350.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search by name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredStops) { stop ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelected(stop) },
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Text(
+                                text = stop.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp)
+                            )
+                        }
+                        HorizontalDivider()
+                    }
+                }
             }
         }
-    }
+    )
 }
 
 // ── Departure Time Picker ──────────────────────────────────────
@@ -216,7 +261,7 @@ fun DepartureTimePicker(
     onTimeSelected: (hour: Int, minute: Int) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    val timePickerState = rememberTimePickerState()
+    val timePickerState = rememberTimePickerState(initialHour = 16, initialMinute = 15)
 
     OutlinedTextField(
         value = if (displayText.isNotEmpty()) displayText else "Select departure time",
@@ -229,7 +274,9 @@ fun DepartureTimePicker(
                 Icon(Icons.Outlined.AccessTime, contentDescription = "Pick time")
             }
         },
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true }
     )
 
     if (showDialog) {

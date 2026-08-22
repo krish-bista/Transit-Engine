@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TransitEngine - High-Performance RAPTOR Routing & Live Telemetry</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- Top Navigation Bar -->
+  <header class="h-16 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur px-5 flex items-center justify-between z-20 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <i data-lucide="compass" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-lg font-bold tracking-tight text-white">Transit<span class="text-indigo-400">Engine</span></h1>
+          <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mono">C++20 RAPTOR</span>
+        </div>
+        <p class="text-xs text-slate-400">Distributed Multi-Modal Transit Router & GTFS-RT Telemetry</p>
+      </div>
+    </div>
+
+    <!-- Live Status Indicators -->
+    <div class="flex items-center space-x-4">
+      <div id="live-telemetry-badge" class="hidden sm:flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-full text-xs font-medium text-emerald-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="telemetry-status-text">Connected: 15 Live Buses</span>
+      </div>
+
+      <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs text-slate-300">
+        <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span>Avg Latency: <strong id="avg-latency-display" class="text-white mono">&lt; 1 ms</strong></span>
+      </div>
+
+      <a href="https://github.com" target="_blank" class="flex items-center space-x-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition border border-slate-700">
+        <i data-lucide="github" class="w-4 h-4"></i>
+        <span>Code</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content Body (Sidebar + Map) -->
+  <div class="flex-1 flex relative overflow-hidden">
+
+    <!-- Floating / Docked Sidebar -->
+    <aside class="w-full sm:w-[440px] h-full glass-panel z-10 flex flex-col border-r border-slate-800/80 shrink-0">
+      
+      <!-- Tab Controls -->
+      <div class="flex border-b border-slate-800 px-4 pt-3 bg-slate-900/50">
+        <button id="tab-planner-btn" onclick="switchTab('planner')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition">
+          <i data-lucide="navigation-2" class="w-4 h-4"></i>
+          <span>Trip Planner</span>
+        </button>
+        <button id="tab-fleet-btn" onclick="switchTab('fleet')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          <i data-lucide="bus" class="w-4 h-4"></i>
+          <span>Live Fleet</span>
+        </button>
+        <button id="tab-metrics-btn" onclick="switchTab('metrics')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          <i data-lucide="activity" class="w-4 h-4"></i>
+          <span>Engine Stats</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Trip Planner -->
+      <div id="tab-planner" class="flex-1 flex flex-col overflow-hidden p-4 space-y-4">
+        
+        <!-- Search Input Box -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+          
+          <!-- Origin Picker -->
+          <div class="space-y-1">
+            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>Origin Stop</span>
+              <span id="source-id-tag" class="text-slate-500 mono text-[10px]">ID: 103</span>
+            </label>
+            <div class="relative">
+              <input type="text" id="source-input" placeholder="Search departure stop..." autocomplete="off"
+                     class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+              <div id="source-results" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto hidden"></div>
+            </div>
+          </div>
+
+          <!-- Swap Button -->
+          <div class="flex justify-center -my-1">
+            <button onclick="swapStops()" class="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition border border-slate-700">
+              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <!-- Destination Picker -->
+          <div class="space-y-1">
+            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>Destination Stop</span>
+              <span id="target-id-tag" class="text-slate-500 mono text-[10px]">ID: 171</span>
+            </label>
+            <div class="relative">
+              <input type="text" id="target-input" placeholder="Search arrival stop..." autocomplete="off"
+                     class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+              <div id="target-results" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto hidden"></div>
+            </div>
+          </div>
+
+          <!-- Departure Time Picker -->
+          <div class="flex items-center space-x-2 pt-1">
+            <div class="flex-1">
+              <label class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Departure Time</label>
+              <input type="time" id="departure-time" value="08:20"
+                     class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 mono">
+            </div>
+            <button onclick="setNowTime()" class="mt-5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 rounded-xl transition border border-slate-700">
+              Now
+            </button>
+          </div>
+
+          <!-- Submit Action -->
+          <button onclick="calculateRoute()" id="search-route-btn" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2 transition">
+            <i data-lucide="zap" class="w-4 h-4 text-amber-300"></i>
+            <span>Calculate Fastest Route</span>
+          </button>
+        </div>
+
+        <!-- Query Results Container -->
+        <div id="route-results-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+          <!-- Populated dynamically by app.js -->
+          <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-2">
+            <i data-lucide="route" class="w-10 h-10 stroke-1 text-slate-600"></i>
+            <p class="text-sm font-medium">Select origin and destination stops above to compute optimal RAPTOR itineraries.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab 2: Live Fleet -->
+      <div id="tab-fleet" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3 hidden">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Active Vehicles (<span id="fleet-count">0</span>)</h2>
+          <span class="text-xs text-emerald-400 flex items-center space-x-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>60 FPS Stream</span>
+          </span>
+        </div>
+        <div id="fleet-list-container" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+          <!-- Populated by WebSocket -->
+        </div>
+      </div>
+
+      <!-- Tab 3: Engine Metrics -->
+      <div id="tab-metrics" class="flex-1 flex flex-col overflow-hidden p-4 space-y-4 hidden">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Core Engine Benchmarks</h2>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
+            <span class="text-xs text-slate-400 font-medium">Algorithm</span>
+            <p class="text-base font-bold text-indigo-400">RAPTOR</p>
+            <span class="text-[10px] text-slate-500">Round-based Pareto router</span>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
+            <span class="text-xs text-slate-400 font-medium">Memory Index</span>
+            <p class="text-base font-bold text-cyan-400">CSR Binary</p>
+            <span class="text-[10px] text-slate-500">Zero-copy cache line aligned</span>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
+            <span class="text-xs text-slate-400 font-medium">Indexed Stops</span>
+            <p class="text-base font-bold text-white mono" id="metric-stops-count">729</p>
+            <span class="text-[10px] text-slate-500">Thunder Bay Transit</span>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-1">
+            <span class="text-xs text-slate-400 font-medium">Stop Times</span>
+            <p class="text-base font-bold text-white mono" id="metric-st-count">161,504</p>
+            <span class="text-[10px] text-slate-500">Compiled GTFS records</span>
+          </div>
+        </div>
+
+        <!-- Telemetry Bus Card -->
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase text-slate-400">Redis Message Broker</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">Active</span>
+          </div>
+          <p class="text-xs text-slate-400">Subscribed to channel <code class="text-indigo-300 mono bg-slate-950 px-1.5 py-0.5 rounded">gtfs_rt_delays</code>. Dynamically adjusts stop arrival vectors without locking reader threads.</p>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Map Viewport -->
+    <main class="flex-1 h-full relative">
+      <div id="map"></div>
+
+      <!-- Floating Map Overlays -->
+      <div class="absolute top-4 right-4 z-[400] flex flex-col space-y-2">
+        <button onclick="centerMapOnTransit()" title="Center Network" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
+          <i data-lucide="crosshair" class="w-4 h-4"></i>
+        </button>
+        <button onclick="toggleAllStops()" id="toggle-stops-btn" title="Toggle Stop Pins" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
+          <i data-lucide="map-pin" class="w-4 h-4 text-indigo-400"></i>
+        </button>
+      </div>
+
+      <!-- Floating Live Ticker Banner -->
+      <div class="absolute bottom-4 left-4 right-4 sm:left-[460px] sm:right-6 z-[400] bg-slate-900/90 backdrop-blur border border-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-3 truncate">
+          <span class="flex items-center space-x-1.5 text-indigo-400 font-semibold shrink-0">
+            <i data-lucide="radio" class="w-3.5 h-3.5"></i>
+            <span>LIVE FEED:</span>
+          </span>
+          <span id="live-ticker-text" class="text-slate-300 truncate">Interpolating real-time GPS locations for transit routes...</span>
+        </div>
+        <span class="text-slate-500 mono shrink-0 hidden md:inline" id="live-clock">00:00:00</span>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Departures Modal / Dialog -->
+  <div id="departures-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 id="modal-stop-name" class="text-base font-bold text-white">Stop Name</h3>
+          <span id="modal-stop-id" class="text-xs text-slate-400 mono">Stop ID: 0</span>
+        </div>
+        <button onclick="closeDeparturesModal()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <span>Upcoming Departures</span>
+          <span>Status</span>
+        </div>
+        <div id="modal-departures-list" class="max-h-60 overflow-y-auto space-y-2 pr-1">
+          <!-- Departures items -->
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="closeDeparturesModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white rounded-xl transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App JavaScript Logic -->
+  <script src="app.js"></script>
+</body>
+</html>

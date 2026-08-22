@@ -8,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
 /** A transit stop parsed from assets/stops.json. */
@@ -19,23 +21,44 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = TransitRepository()
 
     // ── Stop catalogue ─────────────────────────────────────────
-    val stops: List<Stop>
+    var stops by mutableStateOf<List<Stop>>(emptyList())
+        private set
+    private var stopById: Map<Int, Stop> = emptyMap()
 
     init {
-        val json = application.assets
-            .open("stops.json")
-            .bufferedReader()
-            .use { it.readText() }
-        val array = JSONArray(json)
-        val parsed = mutableListOf<Stop>()
-        for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            parsed.add(Stop(id = obj.getInt("id"), name = obj.getString("name")))
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val json = application.assets
+                    .open("stops.json")
+                    .bufferedReader()
+                    .use { it.readText() }
+                val array = JSONArray(json)
+                val parsed = ArrayList<Stop>(array.length())
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    parsed.add(Stop(id = obj.getInt("id"), name = obj.getString("name")))
+                }
+                withContext(Dispatchers.Main) {
+                    stops = parsed
+                    stopById = parsed.associateBy { it.id }
+                    // Set sensible default source and target stops for quick testing
+                    if (parsed.isNotEmpty()) {
+                        selectedSource = parsed[0]
+                        sourceQuery = parsed[0].name
+                        if (parsed.size > 4) {
+                            selectedTarget = parsed[4]
+                            targetQuery = parsed[4].name
+                        }
+                    }
+                    if (departureSeconds < 0) {
+                        departureSeconds = 16 * 3600 + 15 * 60 // 16:15 default
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-        stops = parsed
     }
-
-    private val stopById: Map<Int, Stop> = stops.associateBy { it.id }
 
     /** Resolve a stop ID to its human-readable name. */
     fun stopName(id: Int): String = stopById[id]?.name ?: "Stop $id"
@@ -48,9 +71,8 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onSourceQueryChanged(value: String) {
         sourceQuery = value
-        if (selectedSource != null && value != selectedSource!!.name) {
-            selectedSource = null
-        }
+        val match = stops.find { it.name.equals(value.trim(), ignoreCase = true) }
+        selectedSource = match
     }
 
     fun onSourceSelected(stop: Stop) {
@@ -66,9 +88,8 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onTargetQueryChanged(value: String) {
         targetQuery = value
-        if (selectedTarget != null && value != selectedTarget!!.name) {
-            selectedTarget = null
-        }
+        val match = stops.find { it.name.equals(value.trim(), ignoreCase = true) }
+        selectedTarget = match
     }
 
     fun onTargetSelected(stop: Stop) {
@@ -77,10 +98,9 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── Departure time state (seconds past midnight) ───────────
-    var departureSeconds by mutableIntStateOf(-1)
+    var departureSeconds by mutableIntStateOf(16 * 3600 + 15 * 60)
         private set
 
-    /** Called when the user confirms the Material 3 TimePicker. */
     fun onDepartureTimeSelected(hour: Int, minute: Int) {
         departureSeconds = hour * 3600 + minute * 60
     }
@@ -111,14 +131,16 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                val response = repository.getRoute(src.id, tgt.id, departureSeconds)
+                val response = withContext(Dispatchers.IO) {
+                    repository.getRoute(src.id, tgt.id, departureSeconds)
+                }
                 if (response.success && response.itineraryList.isNotEmpty()) {
                     legs.addAll(response.itineraryList)
                 } else if (!response.success) {
                     errorMessage = "No route found"
                 }
             } catch (e: Exception) {
-                errorMessage = "Error: ${e.message}"
+                errorMessage = "Error: ${e.message ?: "Failed to connect to routing engine"}"
             } finally {
                 isLoading = false
             }

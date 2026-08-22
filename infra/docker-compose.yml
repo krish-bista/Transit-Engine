@@ -25,3 +25,15 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.gateway
+    container_name: transit-gateway
+    depends_on:
+      - engine
+      - redis
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

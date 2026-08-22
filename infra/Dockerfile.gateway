@@ -1,0 +1,22 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY gateway/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY raw_gtfs/ /app/raw_gtfs/
+COPY binary_gtfs/ /app/binary_gtfs/
+COPY gateway/ /app/gateway/
+COPY web/ /app/web/
+
+WORKDIR /app/gateway
+
+ENV ENGINE_HOST=engine
+ENV ENGINE_PORT=50051
+ENV REDIS_HOST=redis
+ENV REDIS_PORT=6379
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
