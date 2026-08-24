@@ -61,6 +61,17 @@ function initMap() {
   stopMarkersLayer = L.layerGroup().addTo(map);
   routePolylineLayer = L.layerGroup().addTo(map);
   trackingPolylineLayer = L.layerGroup().addTo(map);
+
+  // Disable Leaflet from intercepting scroll wheel and touch events on the drawer
+  const drawer = document.querySelector(".craft-drawer");
+  const scrollContainer = document.querySelector(".drawer-scroll-container");
+  if (drawer && window.L && L.DomEvent) {
+    L.DomEvent.disableScrollPropagation(drawer);
+    L.DomEvent.disableClickPropagation(drawer);
+  }
+  if (scrollContainer && window.L && L.DomEvent) {
+    L.DomEvent.disableScrollPropagation(scrollContainer);
+  }
 }
 
 function centerMapOnTransit() {
@@ -623,6 +634,10 @@ function renderOptionsList() {
     </div>
   `;
 
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableScrollPropagation(container);
+  }
+
   if (window.lucide) lucide.createIcons();
   if (options[0]) drawRouteGeometry(options[0].itinerary);
 }
@@ -765,6 +780,10 @@ function startJourney(optionIndex) {
       ${legsHtml}
     </div>
   `;
+
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableScrollPropagation(container);
+  }
 
   if (window.lucide) lucide.createIcons();
   drawRouteGeometry(opt.itinerary);
