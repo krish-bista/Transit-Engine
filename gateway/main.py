@@ -15,8 +15,8 @@ from raptor_engine import RaptorEngine
 
 app = FastAPI(
     title="City Transit Guide API",
-    description="Real-Time Passenger Transit Router with Step-by-Step Directions and Live Bus Tracking.",
-    version="2.1.0"
+    description="Real-Time Passenger Transit Router with Step-by-Step Directions and Live Road GPS Tracking.",
+    version="2.2.0"
 )
 
 # Enable CORS
@@ -83,7 +83,7 @@ def serve_root():
     index_path = os.path.join(WEB_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"system": "Transit Guide", "version": "2.1.0", "status": "online"}
+    return {"system": "City Transit", "version": "2.2.0", "status": "online"}
 
 @app.get("/styles.css", include_in_schema=False)
 def serve_styles():
@@ -99,7 +99,6 @@ def health():
         "status": "healthy",
         "stops_count": len(data_manager.stops),
         "routes_count": len(raptor_engine.routes),
-        "walking_footpaths": sum(len(fps) for fps in raptor_engine.footpaths.values()),
         "active_ws_clients": len(ws_manager.active_connections),
         "live_vehicles_count": len(live_vehicles)
     }
@@ -108,7 +107,7 @@ def health():
 def get_nearest_stop(lat: float, lon: float):
     stop = data_manager.find_nearest_stop(lat, lon)
     if not stop:
-        raise HTTPException(status_code=404, detail="No nearby transit stop found")
+        raise HTTPException(status_code=404, detail="No nearby bus stop found")
     return stop
 
 @app.get("/api/stops", response_model=List[StopDTO])
@@ -158,26 +157,33 @@ def find_live_vehicle_for_route(bus_number: str, board_stop: Dict[str, Any]) -> 
     if not target_v or not board_stop:
         return None
 
-    d_lat = (target_v["lat"] - board_stop["lat"]) * 111320
-    d_lon = (target_v["lon"] - board_stop["lon"]) * 111320 * math.cos(math.radians(board_stop["lat"]))
-    dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
-    speed_mps = max(5.0, (target_v.get("speed_kmh", 35) * 1000 / 3600))
-    eta_mins = max(1, int(dist_m / speed_mps / 60))
+    try:
+        v_lat = float(target_v.get("lat", 0.0))
+        v_lon = float(target_v.get("lon", 0.0))
+        b_lat = float(board_stop.get("lat", 0.0))
+        b_lon = float(board_stop.get("lon", 0.0))
 
-    return {
-        "vehicle_id": target_v["vehicle_id"],
-        "route_id": target_v["route_id"],
-        "bus_name": target_v.get("bus_name", f"Bus {target_v['route_id']}"),
-        "route_color": target_v["route_color"],
-        "lat": target_v["lat"],
-        "lon": target_v["lon"],
-        "speed_kmh": round(target_v["speed_kmh"]),
-        "delay_sec": target_v["delay_sec"],
-        "delay_text": f"+{round(target_v['delay_sec']/60)}m delay" if target_v["delay_sec"] > 60 else "On Time",
-        "occupancy": target_v["occupancy"],
-        "distance_m": dist_m,
-        "eta_mins": eta_mins
-    }
+        d_lat = (v_lat - b_lat) * 111320
+        d_lon = (v_lon - b_lon) * 111320 * math.cos(math.radians(b_lat))
+        dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
+        speed_mps = max(5.0, (float(target_v.get("speed_kmh", 35)) * 1000 / 3600))
+        eta_mins = max(1, int(dist_m / speed_mps / 60))
+
+        return {
+            "vehicle_id": str(target_v.get("vehicle_id", "")),
+            "route_id": str(target_v.get("route_id", "")),
+            "bus_name": target_v.get("bus_name", f"Bus {target_v.get('route_id', '')}"),
+            "route_color": target_v.get("route_color", "#4338CA"),
+            "lat": v_lat,
+            "lon": v_lon,
+            "speed_kmh": round(float(target_v.get("speed_kmh", 35))),
+            "delay_sec": int(target_v.get("delay_sec", 0)),
+            "delay_text": f"+{round(int(target_v.get('delay_sec', 0))/60)}m delay" if int(target_v.get("delay_sec", 0)) > 60 else "On Time",
+            "distance_m": dist_m,
+            "eta_mins": eta_mins
+        }
+    except Exception:
+        return None
 
 def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     t_start = time.perf_counter()
@@ -204,9 +210,13 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             bus_name = "Walk"
             headsign = ""
             action_title = f"Walk to {a_stop['name']}"
-            route_color = "#06b6d4"
+            route_color = "#0ea5e9"
             route_text_color = "#FFFFFF"
             live_vehicle = None
+            leg_geometry = [
+                [b_stop.get("lat", 0.0), b_stop.get("lon", 0.0)],
+                [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
+            ]
         else:
             transit_transfers += 1
             raw_rid = str(leg.get("real_route_id", "")).strip()
@@ -215,17 +225,21 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             bus_line_name = route_meta.get("long_name", "")
             headsign = leg.get("headsign", "")
 
-            # Combine line name & headsign cleanly
             if bus_line_name and bus_line_name.lower() not in headsign.lower():
                 bus_name = f"Bus {bus_number} ({bus_line_name})"
-                action_title = f"Catch Bus {bus_number} ({bus_line_name})" + (f" - {headsign}" if headsign else "")
+                action_title = f"Take the {bus_number} {bus_line_name} bus"
             else:
                 bus_name = f"Bus {bus_number}" + (f" ({headsign})" if headsign else "")
-                action_title = f"Catch Bus {bus_number}" + (f" - {headsign}" if headsign else "")
+                action_title = f"Take the {bus_number} bus" + (f" ({headsign})" if headsign else "")
 
-            route_color = route_meta.get("color", "#4F46E5")
+            route_color = route_meta.get("color", "#4338CA")
             route_text_color = route_meta.get("text_color", "#FFFFFF")
             live_vehicle = find_live_vehicle_for_route(bus_number, b_stop)
+
+            # Slices true road coordinates from shapes.txt
+            leg_geometry = data_manager.get_shape_segment(raw_rid, b_stop["lat"], b_stop["lon"], a_stop["lat"], a_stop["lon"])
+            if len(leg_geometry) <= 2 and bus_number:
+                leg_geometry = data_manager.get_shape_segment(bus_number, b_stop["lat"], b_stop["lon"], a_stop["lat"], a_stop["lon"])
 
         if first_board is None:
             first_board = leg["board_time"]
@@ -264,10 +278,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             "duration_mins": duration_mins,
             "distance_m": dist_m,
             "live_vehicle": live_vehicle,
-            "geometry": [
-                [b_stop.get("lat", 0.0), b_stop.get("lon", 0.0)],
-                [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
-            ]
+            "geometry": leg_geometry
         })
 
     first_board = formatted_legs[0]["board_time_sec"] if formatted_legs else dep_sec
@@ -275,7 +286,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     total_duration_mins = max(1, (last_alight - first_board) // 60)
 
     first_bus_sec = None
-    first_bus_label = "Direct Transit"
+    first_bus_label = "Direct Ride"
     for leg in formatted_legs:
         if not leg["is_walking"]:
             first_bus_sec = leg["board_time_sec"]
@@ -297,17 +308,22 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
 @app.post("/api/route")
 def plan_route(req: RoutePlanRequest):
     dep_sec = 0
-    if req.departure_time is None:
-        dep_sec = 31620  # Default 08:47 AM
+    if req.departure_time is None or req.departure_time == "now":
+        # Current local time
+        t = time.localtime()
+        dep_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
     elif isinstance(req.departure_time, str) and ":" in req.departure_time:
         dep_sec = data_manager.hms_to_sec(req.departure_time)
     else:
-        dep_sec = int(req.departure_time)
+        try:
+            dep_sec = int(req.departure_time)
+        except Exception:
+            dep_sec = 31620
 
     source = data_manager.get_stop(req.source_stop)
     target = data_manager.get_stop(req.target_stop)
     if not source or not target:
-        raise HTTPException(status_code=400, detail="Invalid starting point or destination")
+        raise HTTPException(status_code=400, detail="Invalid starting location or destination")
 
     options = []
     total_latency_ms = 0.0
@@ -316,7 +332,7 @@ def plan_route(req: RoutePlanRequest):
 
     seen_departure_times = set()
 
-    for _ in range(num_options + 5):
+    for _ in range(num_options + 20):
         if len(options) >= num_options:
             break
 
@@ -325,7 +341,7 @@ def plan_route(req: RoutePlanRequest):
 
         if not opt:
             current_search_dep += 15 * 60
-            if current_search_dep > dep_sec + 4 * 3600:
+            if current_search_dep > dep_sec + 14 * 3600:
                 break
             continue
 
@@ -339,7 +355,7 @@ def plan_route(req: RoutePlanRequest):
     if not options:
         return {
             "success": False,
-            "message": "No bus connections found for this time window. Try selecting another departure time.",
+            "message": "No bus connections found for this time. Try selecting a different time or nearby stop.",
             "source": source,
             "target": target,
             "departure_date": req.departure_date or "today",
@@ -364,7 +380,7 @@ def plan_route(req: RoutePlanRequest):
 def get_live_vehicles():
     return live_vehicles
 
-# Real-time Background Vehicle Simulator & Broadcaster
+# Real-time Background Vehicle Simulator driving on TRUE road shape coordinates
 async def telemetry_background_worker():
     stops = data_manager.stops
     if not stops:
@@ -391,9 +407,15 @@ async def telemetry_background_worker():
     vehicles = []
     for i, (rid, rname) in enumerate(active_bus_lines):
         meta = THUNDER_BAY_ROUTES.get(rid, {})
-        color = meta.get("color", "#4F46E5")
-        s_from = stops[(i * 35) % len(stops)]
-        s_to = stops[(i * 35 + 12) % len(stops)]
+        color = meta.get("color", "#4338CA")
+        
+        # Get true road shape points
+        pts = data_manager.route_shapes.get(rid, [])
+        if not pts:
+            pts = [[48.416 + (i*0.005), -89.236 + (i*0.005)], [48.426, -89.270]]
+
+        start_pt_idx = (i * 20) % len(pts)
+        init_pt = pts[start_pt_idx]
 
         vehicles.append({
             "vehicle_id": f"BUS-{100 + i + 1}",
@@ -401,35 +423,32 @@ async def telemetry_background_worker():
             "route_name": rname,
             "bus_name": f"Bus {rid} ({rname})",
             "route_color": color,
-            "from_stop": s_from["name"],
-            "to_stop": s_to["name"],
-            "lat": s_from["lat"],
-            "lon": s_from["lon"],
-            "target_lat": s_to["lat"],
-            "target_lon": s_to["lon"],
-            "progress": (i * 0.15) % 1.0,
-            "speed_kmh": 32.0 + (i % 12),
-            "delay_sec": (i * 25) % 180,
-            "occupancy": ["SEATS_AVAILABLE", "SEATS_AVAILABLE", "STANDING_ROOM_ONLY", "EMPTY"][i % 4]
+            "shape_pts": pts,
+            "current_pt_idx": start_pt_idx,
+            "direction": 1,
+            "lat": init_pt[0],
+            "lon": init_pt[1],
+            "speed_kmh": 34.0 + (i % 8),
+            "delay_sec": (i * 20) % 120,
+            "heading": 0
         })
 
     while True:
         try:
             for v in vehicles:
-                v["progress"] += 0.015
-                if v["progress"] >= 1.0:
-                    v["progress"] = 0.0
-                    idx = (int(v["vehicle_id"].split("-")[1]) + int(time.time())) % len(stops)
-                    v["from_stop"] = stops[idx]["name"]
-                    v["to_stop"] = stops[(idx + 8) % len(stops)]["name"]
-                    v["lat"] = stops[idx]["lat"]
-                    v["lon"] = stops[idx]["lon"]
-                    v["target_lat"] = stops[(idx + 8) % len(stops)]["lat"]
-                    v["target_lon"] = stops[(idx + 8) % len(stops)]["lon"]
-                else:
-                    p = v["progress"]
-                    v["current_lat"] = v["lat"] + (v["target_lat"] - v["lat"]) * p
-                    v["current_lon"] = v["lon"] + (v["target_lon"] - v["lon"]) * p
+                pts = v["shape_pts"]
+                if len(pts) > 1:
+                    v["current_pt_idx"] += v["direction"]
+                    if v["current_pt_idx"] >= len(pts) - 1:
+                        v["direction"] = -1
+                        v["current_pt_idx"] = len(pts) - 1
+                    elif v["current_pt_idx"] <= 0:
+                        v["direction"] = 1
+                        v["current_pt_idx"] = 0
+
+                    next_pt = pts[v["current_pt_idx"]]
+                    v["lat"] = next_pt[0]
+                    v["lon"] = next_pt[1]
 
             global live_vehicles
             live_vehicles = [
@@ -439,13 +458,10 @@ async def telemetry_background_worker():
                     "route_name": v["route_name"],
                     "bus_name": v["bus_name"],
                     "route_color": v["route_color"],
-                    "lat": v.get("current_lat", v["lat"]),
-                    "lon": v.get("current_lon", v["lon"]),
-                    "from_stop": v["from_stop"],
-                    "to_stop": v["to_stop"],
+                    "lat": v["lat"],
+                    "lon": v["lon"],
                     "speed_kmh": v["speed_kmh"],
-                    "delay_sec": v["delay_sec"],
-                    "occupancy": v["occupancy"]
+                    "delay_sec": v["delay_sec"]
                 }
                 for v in vehicles
             ]

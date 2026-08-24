@@ -6,26 +6,26 @@ from typing import List, Dict, Any, Optional
 
 # Official Thunder Bay Transit Route Catalog
 THUNDER_BAY_ROUTES = {
-    "1": {"name": "Mainline", "color": "#EF4135", "text_color": "#FFFFFF"},
-    "2": {"name": "Crosstown", "color": "#13B5EA", "text_color": "#FFFFFF"},
-    "3C": {"name": "County Park", "color": "#9B7D0D", "text_color": "#FFFFFF"},
-    "3J": {"name": "Jumbo Gardens", "color": "#EE2B74", "text_color": "#FFFFFF"},
-    "3M": {"name": "Memorial", "color": "#E58E1A", "text_color": "#FFFFFF"},
-    "4": {"name": "Neebing", "color": "#F26531", "text_color": "#FFFFFF"},
-    "5": {"name": "Edward", "color": "#936FB1", "text_color": "#FFFFFF"},
-    "6": {"name": "Mission Rd", "color": "#9C0059", "text_color": "#FFFFFF"},
-    "7": {"name": "Hudson", "color": "#762123", "text_color": "#FFFFFF"},
-    "8": {"name": "James", "color": "#00B259", "text_color": "#FFFFFF"},
-    "9": {"name": "Junot", "color": "#0067AC", "text_color": "#FFFFFF"},
-    "10": {"name": "Northwood", "color": "#6A2C91", "text_color": "#FFFFFF"},
-    "11": {"name": "John", "color": "#8DC63F", "text_color": "#FFFFFF"},
-    "12": {"name": "East End", "color": "#FDBB30", "text_color": "#000000"},
-    "13": {"name": "John-Jumbo", "color": "#008E7F", "text_color": "#FFFFFF"},
-    "14": {"name": "Arthur", "color": "#7ACCC8", "text_color": "#000000"},
-    "15": {"name": "Beverly", "color": "#0A0C53", "text_color": "#FFFFFF"},
-    "16": {"name": "Balmoral", "color": "#D11242", "text_color": "#FFFFFF"},
-    "17": {"name": "Current River", "color": "#BF4F9D", "text_color": "#FFFFFF"},
-    "18": {"name": "Westfort", "color": "#CC667A", "text_color": "#FFFFFF"}
+    "1": {"name": "Mainline", "color": "#E11D48", "text_color": "#FFFFFF"},
+    "2": {"name": "Crosstown", "color": "#0284C7", "text_color": "#FFFFFF"},
+    "3C": {"name": "County Park", "color": "#B45309", "text_color": "#FFFFFF"},
+    "3J": {"name": "Jumbo Gardens", "color": "#DB2777", "text_color": "#FFFFFF"},
+    "3M": {"name": "Memorial", "color": "#D97706", "text_color": "#FFFFFF"},
+    "4": {"name": "Neebing", "color": "#EA580C", "text_color": "#FFFFFF"},
+    "5": {"name": "Edward", "color": "#7C3AED", "text_color": "#FFFFFF"},
+    "6": {"name": "Mission Rd", "color": "#9D174D", "text_color": "#FFFFFF"},
+    "7": {"name": "Hudson", "color": "#991B1B", "text_color": "#FFFFFF"},
+    "8": {"name": "James", "color": "#059669", "text_color": "#FFFFFF"},
+    "9": {"name": "Junot", "color": "#2563EB", "text_color": "#FFFFFF"},
+    "10": {"name": "Northwood", "color": "#6D28D9", "text_color": "#FFFFFF"},
+    "11": {"name": "John", "color": "#65A30D", "text_color": "#FFFFFF"},
+    "12": {"name": "East End", "color": "#CA8A04", "text_color": "#FFFFFF"},
+    "13": {"name": "John-Jumbo", "color": "#0D9488", "text_color": "#FFFFFF"},
+    "14": {"name": "Arthur", "color": "#0891B2", "text_color": "#FFFFFF"},
+    "15": {"name": "Beverly", "color": "#1E3A8A", "text_color": "#FFFFFF"},
+    "16": {"name": "Balmoral", "color": "#BE123C", "text_color": "#FFFFFF"},
+    "17": {"name": "Current River", "color": "#A21CAF", "text_color": "#FFFFFF"},
+    "18": {"name": "Westfort", "color": "#BE185D", "text_color": "#FFFFFF"}
 }
 
 class GTFSDataManager:
@@ -40,6 +40,7 @@ class GTFSDataManager:
         self.stop_by_raw_id: Dict[str, int] = {}
         self.routes: Dict[str, Dict[str, Any]] = {}
         self.shapes: Dict[str, List[List[float]]] = {}
+        self.route_shapes: Dict[str, List[str]] = {}  # route_id -> list of shape_ids
         self.trips: Dict[str, Dict[str, Any]] = {}
         self.stop_times: List[Dict[str, Any]] = []
         
@@ -69,7 +70,7 @@ class GTFSDataManager:
                 self.stops.append(stop_obj)
                 self.stop_by_id[idx] = stop_obj
 
-        # 2. Load routes.txt with official Thunder Bay metadata mapping
+        # 2. Load routes.txt
         routes_file = os.path.join(self.raw_dir, "routes.txt")
         if not os.path.exists(routes_file):
             routes_file = os.path.join(self.raw_dir, "extracted", "routes.txt")
@@ -80,15 +81,14 @@ class GTFSDataManager:
                 rid = str(r.get("route_id", "")).strip()
                 short_name = str(r.get("route_short_name", rid)).strip()
                 
-                # Check official Thunder Bay catalog
                 official = THUNDER_BAY_ROUTES.get(short_name, THUNDER_BAY_ROUTES.get(rid, {}))
                 route_name = official.get("name", str(r.get("route_long_name", f"Route {short_name}")).strip())
                 if not route_name or route_name == "nan":
                     route_name = f"Route {short_name}"
                 
-                color = official.get("color") or str(r.get("route_color", "4F46E5")).strip()
+                color = official.get("color") or str(r.get("route_color", "4338CA")).strip()
                 if not color or color == "nan":
-                    color = "4F46E5"
+                    color = "4338CA"
                 if not color.startswith("#"):
                     color = f"#{color}"
                 
@@ -103,7 +103,19 @@ class GTFSDataManager:
                     "text_color": text_color,
                 }
 
-        # 3. Load trips.txt (contains headsign, route_id, shape_id)
+        # 3. Load shapes.txt (Road Polylines)
+        shapes_file = os.path.join(self.raw_dir, "shapes.txt")
+        if not os.path.exists(shapes_file):
+            shapes_file = os.path.join(self.raw_dir, "extracted", "shapes.txt")
+
+        if os.path.exists(shapes_file):
+            df_shapes = pd.read_csv(shapes_file)
+            df_shapes["seq"] = df_shapes["shape_pt_sequence"].astype(int)
+            for shape_id, group in df_shapes.groupby("shape_id"):
+                pts = group.sort_values("seq")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
+                self.shapes[str(shape_id)] = pts
+
+        # 4. Load trips.txt
         trips_file = os.path.join(self.raw_dir, "trips.txt")
         if not os.path.exists(trips_file):
             trips_file = os.path.join(self.raw_dir, "extracted", "trips.txt")
@@ -121,20 +133,12 @@ class GTFSDataManager:
                     "headsign": headsign,
                     "shape_id": shape_id
                 }
+                if rid not in self.route_shapes:
+                    self.route_shapes[rid] = []
+                if shape_id in self.shapes and shape_id not in self.route_shapes[rid]:
+                    self.route_shapes[rid].append(shape_id)
 
-        # 4. Load shapes.txt
-        shapes_file = os.path.join(self.raw_dir, "shapes.txt")
-        if not os.path.exists(shapes_file):
-            shapes_file = os.path.join(self.raw_dir, "extracted", "shapes.txt")
-
-        if os.path.exists(shapes_file):
-            df_shapes = pd.read_csv(shapes_file)
-            df_shapes["seq"] = df_shapes["shape_pt_sequence"].astype(int)
-            for shape_id, group in df_shapes.groupby("shape_id"):
-                pts = group.sort_values("seq")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
-                self.shapes[str(shape_id)] = pts
-
-        # 5. Load all stop_times.txt
+        # 5. Load stop_times.txt
         st_file = os.path.join(self.raw_dir, "stop_times.txt")
         if not os.path.exists(st_file):
             st_file = os.path.join(self.raw_dir, "extracted", "stop_times.txt")
@@ -173,7 +177,11 @@ class GTFSDataManager:
     def sec_to_hms(sec: int) -> str:
         h = (sec // 3600) % 24
         m = (sec % 3600) // 60
-        return f"{h:02d}:{m:02d}"
+        ampm = "AM" if h < 12 else "PM"
+        display_h = h if h <= 12 else h - 12
+        if display_h == 0:
+            display_h = 12
+        return f"{display_h}:{m:02d} {ampm}"
 
     def get_stop(self, stop_id: int) -> Optional[Dict[str, Any]]:
         return self.stop_by_id.get(stop_id)
@@ -200,6 +208,39 @@ class GTFSDataManager:
                 best_stop["distance_m"] = int(dist)
         return best_stop
 
+    def get_shape_segment(self, route_id: str, b_lat: float, b_lon: float, a_lat: float, a_lon: float, intermediate_stops_coords: Optional[List[List[float]]] = None) -> List[List[float]]:
+        candidate_shape_ids = self.route_shapes.get(str(route_id).strip(), [])
+        best_segment = None
+        min_error = float("inf")
+
+        for sid in candidate_shape_ids:
+            pts = self.shapes.get(sid, [])
+            if len(pts) < 2:
+                continue
+
+            # Find closest shape points
+            b_idx = min(range(len(pts)), key=lambda i: (pts[i][0] - b_lat)**2 + (pts[i][1] - b_lon)**2)
+            a_idx = min(range(len(pts)), key=lambda i: (pts[i][0] - a_lat)**2 + (pts[i][1] - a_lon)**2)
+
+            b_dist = (pts[b_idx][0] - b_lat)**2 + (pts[b_idx][1] - b_lon)**2
+            a_dist = (pts[a_idx][0] - a_lat)**2 + (pts[a_idx][1] - a_lon)**2
+            total_dist = b_dist + a_dist
+
+            if total_dist < min_error:
+                min_error = total_dist
+                if b_idx <= a_idx:
+                    best_segment = [[b_lat, b_lon]] + pts[b_idx : a_idx + 1] + [[a_lat, a_lon]]
+                else:
+                    best_segment = [[b_lat, b_lon]] + pts[a_idx : b_idx + 1][::-1] + [[a_lat, a_lon]]
+
+        if best_segment and len(best_segment) > 2:
+            return best_segment
+
+        if intermediate_stops_coords and len(intermediate_stops_coords) > 0:
+            return [[b_lat, b_lon]] + intermediate_stops_coords + [[a_lat, a_lon]]
+
+        return [[b_lat, b_lon], [a_lat, a_lon]]
+
     def get_upcoming_departures(self, stop_id: int, current_sec: int, limit: int = 10) -> List[Dict[str, Any]]:
         departures = []
         for st in self.stop_times:
@@ -217,7 +258,7 @@ class GTFSDataManager:
                     "route_id": short_name,
                     "bus_name": bus_name,
                     "headsign": headsign,
-                    "route_color": route_meta.get("color", "#4F46E5"),
+                    "route_color": route_meta.get("color", "#4338CA"),
                     "departure_sec": st["dep_sec"],
                     "departure_time": self.sec_to_hms(st["dep_sec"]),
                     "delay_sec": 0,

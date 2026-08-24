@@ -3,25 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transit Guide - Live Bus Tracker & Trip Directions</title>
+  <title>CityTransit • Thunder Bay</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              500: '#6366f1',
-              600: '#4f46e5',
-            }
-          }
-        }
-      }
-    }
-  </script>
 
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -31,323 +16,308 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css?v=2.2">
+  <link rel="stylesheet" href="styles.css?v=4.2">
 </head>
-<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+<body class="bg-stone-100 text-stone-900 flex h-screen w-screen overflow-hidden antialiased">
 
-  <!-- Top Navigation Bar -->
-  <header class="h-16 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur px-5 flex items-center justify-between z-20 shrink-0">
-    <div class="flex items-center space-x-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-        <i data-lucide="bus" class="w-5 h-5 text-white"></i>
-      </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <h1 class="text-lg font-bold tracking-tight text-white">Transit<span class="text-indigo-400">Guide</span></h1>
-          <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Live GPS Active</span>
-          </span>
-        </div>
-        <p class="text-xs text-slate-400">Real-time Bus Times, Step-by-Step Directions & Live Tracking</p>
-      </div>
-    </div>
+  <!-- Full-Bleed Map Surface -->
+  <div id="map" class="absolute inset-0 z-0"></div>
 
-    <!-- Live Status -->
-    <div class="flex items-center space-x-3">
-      <div id="live-telemetry-badge" class="flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-medium text-slate-300">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span id="telemetry-status-text">15 Live Buses on Roads</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content Body (Sidebar + Map) -->
-  <div class="flex-1 flex relative overflow-hidden">
-
-    <!-- Floating / Docked Sidebar -->
-    <aside class="w-full sm:w-[480px] h-full glass-panel z-10 flex flex-col border-r border-slate-800/80 shrink-0">
+  <!-- Floating Craft Drawer (Left) -->
+  <div class="relative z-10 w-full sm:w-[460px] h-full flex flex-col p-4 sm:p-5 pointer-events-none">
+    
+    <!-- Elevated White Card -->
+    <div class="craft-drawer rounded-3xl flex flex-col h-full overflow-hidden pointer-events-auto shadow-2xl">
       
-      <!-- Tab Controls -->
-      <div class="flex border-b border-slate-800 px-4 pt-3 bg-slate-900/50">
-        <button id="tab-planner-btn" onclick="switchTab('planner')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-indigo-500 text-indigo-400 transition">
-          <i data-lucide="navigation" class="w-4 h-4"></i>
-          <span>Plan Trip</span>
+      <!-- App Header & Navigation Bar -->
+      <div class="px-6 pt-5 pb-3.5 border-b border-stone-200/70 bg-white/60 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-xl bg-stone-900 flex items-center justify-center text-white shadow-sm">
+            <i data-lucide="compass" class="w-4 h-4 text-stone-100"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-sm font-black tracking-tight text-stone-900">Transit</span>
+              <span class="text-sm text-stone-500 serif-italic">Thunder Bay</span>
+            </div>
+            <p class="text-[11px] font-medium text-stone-400">Live network & directions</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5 bg-stone-100/90 border border-stone-200/80 px-2.5 py-1 rounded-full text-[11px] font-semibold text-stone-600">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="telemetry-status-text">14 buses moving</span>
+        </div>
+      </div>
+
+      <!-- Segmented Tab Switcher -->
+      <div class="px-6 py-2.5 bg-stone-50/60 border-b border-stone-200/50 flex space-x-1.5">
+        <button id="tab-planner-btn" onclick="switchTab('planner')" 
+                class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-stone-900 shadow-sm border border-stone-200/80">
+          <i data-lucide="navigation" class="w-3.5 h-3.5 text-stone-800"></i>
+          <span>Directions</span>
         </button>
-        <button id="tab-fleet-btn" onclick="switchTab('fleet')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
-          <i data-lucide="map-pin" class="w-4 h-4"></i>
+        <button id="tab-fleet-btn" onclick="switchTab('fleet')" 
+                class="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 text-stone-500 hover:text-stone-900 hover:bg-white/70">
+          <i data-lucide="bus" class="w-3.5 h-3.5"></i>
           <span>Live Buses</span>
         </button>
-        <button id="tab-places-btn" onclick="switchTab('places')" class="flex items-center space-x-2 px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
-          <i data-lucide="star" class="w-4 h-4"></i>
-          <span>Key Places</span>
+        <button id="tab-places-btn" onclick="switchTab('places')" 
+                class="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 text-stone-500 hover:text-stone-900 hover:bg-white/70">
+          <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+          <span>Places</span>
         </button>
       </div>
 
-      <!-- Tab 1: Trip Planner -->
-      <div id="tab-planner" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3.5">
-        
-        <!-- Search Input Box -->
-        <div id="search-box-card" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
+      <!-- Tab Content Area -->
+      <div class="flex-1 flex flex-col overflow-hidden p-5 space-y-4">
+
+        <!-- Tab 1: Directions Planner -->
+        <div id="tab-planner" class="flex-1 flex flex-col overflow-hidden space-y-3.5">
           
-          <!-- Origin Picker -->
-          <div class="space-y-1">
-            <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span class="flex items-center space-x-1.5">
-                <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                <span>Starting From (Your Location)</span>
-              </span>
-              <button onclick="useCurrentLocation()" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <i data-lucide="crosshair" class="w-3 h-3"></i>
-                <span>Use Current Location</span>
+          <!-- Unified Origin/Destination Card -->
+          <div class="bg-stone-50/90 border border-stone-200/80 rounded-2xl p-3.5 space-y-2 shadow-sm">
+            
+            <!-- Origin Row -->
+            <div class="relative flex items-center">
+              <div class="w-5 flex justify-center shrink-0">
+                <span class="w-2.5 h-2.5 rounded-full border-2 border-indigo-600 bg-white"></span>
+              </div>
+              <div class="flex-1 min-w-0 ml-2">
+                <input type="text" id="source-input" value="" placeholder="📍 Detecting your location..." autocomplete="off"
+                       class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
+                <div id="source-results" class="absolute left-7 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto hidden"></div>
+              </div>
+              <button onclick="useCurrentLocation()" title="Use my current GPS position" class="ml-2 p-2 rounded-xl text-stone-400 hover:text-indigo-600 hover:bg-indigo-50 transition shrink-0">
+                <i data-lucide="crosshair" class="w-4 h-4"></i>
               </button>
-            </label>
-            <div class="relative">
-              <input type="text" id="source-input" value="Edward & Gordon" placeholder="Where are you starting from?" autocomplete="off"
-                     class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
-              <div id="source-results" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto hidden"></div>
             </div>
-          </div>
 
-          <!-- Swap Button -->
-          <div class="flex justify-center -my-1">
-            <button onclick="swapStops()" title="Swap Starting Point and Destination" class="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition border border-slate-700 shadow">
-              <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-
-          <!-- Destination Picker -->
-          <div class="space-y-1">
-            <label class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span class="flex items-center space-x-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>Destination (Where to?)</span>
-              </span>
-            </label>
-            <div class="relative">
-              <input type="text" id="target-input" value="Thunder Bay Regional Hospital" placeholder="Where do you want to go?" autocomplete="off"
-                     class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
-              <div id="target-results" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto hidden"></div>
+            <!-- Connecting Track & Swap -->
+            <div class="flex items-center pl-2.5 -my-1">
+              <div class="w-0.5 h-3.5 bg-stone-300 ml-[3px]"></div>
+              <div class="flex-1 border-t border-dashed border-stone-200 mx-2"></div>
+              <button onclick="swapStops()" title="Swap stops" class="p-1 rounded-full bg-white text-stone-400 hover:text-stone-800 border border-stone-200 shadow-sm transition">
+                <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
+              </button>
             </div>
-          </div>
 
-          <!-- Date & Time Row -->
-          <div class="space-y-2 pt-1">
-            <div class="flex items-center space-x-2">
-              <!-- Date Selector -->
-              <div class="flex-1">
-                <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">Travel Date</label>
-                <select id="departure-date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-                  <option value="tomorrow" selected>Tomorrow Morning</option>
-                  <option value="today">Today</option>
-                  <option value="weekday">Next Weekday</option>
+            <!-- Destination Row with Quick Selection Dropdown -->
+            <div class="space-y-1.5">
+              <div class="relative flex items-center">
+                <div class="w-5 flex justify-center shrink-0">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                </div>
+                <div class="flex-1 min-w-0 ml-2">
+                  <input type="text" id="target-input" value="" placeholder="Choose destination or type stop..." autocomplete="off"
+                         class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
+                  <div id="target-results" class="absolute left-7 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto hidden"></div>
+                </div>
+              </div>
+
+              <!-- Quick Destination Dropdown Selector -->
+              <div class="pl-7">
+                <select id="destination-quick-select" onchange="onQuickSelectDestination(this.value)" 
+                        class="w-full bg-stone-100 hover:bg-stone-200/80 border border-stone-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-stone-700 focus:outline-none focus:border-stone-900 transition cursor-pointer">
+                  <option value="" selected disabled>✨ Quick Pick Destination...</option>
+                  <option value="184">🏥 Thunder Bay Regional Hospital</option>
+                  <option value="181">🎓 Lakehead University</option>
+                  <option value="190">🏫 Confederation College</option>
+                  <option value="183">🛍 Intercity Shopping Centre</option>
+                  <option value="0">⚓ Waterfront Terminal (Downtown North)</option>
+                  <option value="200">🏛 City Hall Terminal (Downtown South)</option>
+                  <option value="180">✈️ Thunder Bay International Airport</option>
                 </select>
               </div>
+            </div>            <!-- Departure Time Segmented Control -->
+            <div class="pt-2 border-t border-stone-200/60 space-y-2">
+              <div class="flex p-1 bg-stone-200/60 rounded-xl">
+                <button type="button" id="time-mode-now-btn" onclick="setTimeMode('now')" 
+                        class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-stone-900 shadow-sm">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Leave Now</span>
+                </button>
+                <button type="button" id="time-mode-schedule-btn" onclick="setTimeMode('schedule')" 
+                        class="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-stone-500 hover:text-stone-900 transition flex items-center justify-center space-x-1.5">
+                  <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                  <span>Pick Date & Time</span>
+                </button>
+              </div>
 
-              <!-- Time Selector -->
-              <div class="flex-1">
-                <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-1">Departure Time</label>
-                <input type="time" id="departure-time" value="08:47"
-                       class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 mono">
+              <!-- Schedule Window (Appears when 'Pick Date & Time' is clicked) -->
+              <div id="schedule-picker-window" class="hidden grid grid-cols-2 gap-2 pt-1">
+                <div>
+                  <label class="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">Departure Date</label>
+                  <input type="date" id="departure-date-picker" 
+                         class="w-full bg-white border border-stone-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-stone-800 focus:outline-none focus:border-stone-900 shadow-sm">
+                </div>
+                <div>
+                  <label class="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">Departure Time</label>
+                  <input type="time" id="departure-time-picker" 
+                         class="w-full bg-white border border-stone-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-stone-900 focus:outline-none focus:border-stone-900 text-center shadow-sm">
               </div>
             </div>
 
-            <!-- Quick Time Presets -->
-            <div class="flex items-center space-x-1.5 pt-0.5 overflow-x-auto">
-              <button onclick="setTimePreset('08:47')" class="px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900 text-[11px] text-indigo-300 rounded-lg transition border border-indigo-800/60 shrink-0 font-medium">
-                08:47 AM (Morning)
-              </button>
-              <button onclick="setTimePreset('12:00')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 rounded-lg transition border border-slate-700 shrink-0 font-medium">
-                12:00 PM (Noon)
-              </button>
-              <button onclick="setTimePreset('17:15')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 rounded-lg transition border border-slate-700 shrink-0 font-medium">
-                05:15 PM (Evening)
-              </button>
-              <button onclick="setNowTime()" class="px-2.5 py-1 bg-emerald-950/60 hover:bg-emerald-900 text-[11px] text-emerald-400 rounded-lg transition border border-emerald-800/60 shrink-0 font-medium">
-                Now
-              </button>
-            </div>
+            <!-- Submit Action -->
+            <button onclick="calculateRoute()" id="search-route-btn" 
+                    class="w-full btn-tactile bg-stone-900 hover:bg-stone-800 text-white font-bold py-3 px-4 rounded-xl shadow flex items-center justify-center space-x-2 transition">
+              <i data-lucide="sparkles" class="w-4 h-4 text-stone-300"></i>
+              <span>Find Best Routes</span>
+            </button>
+
           </div>
 
-          <!-- Submit Action -->
-          <button onclick="calculateRoute()" id="search-route-btn" class="w-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:opacity-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2 transition">
-            <i data-lucide="compass" class="w-4 h-4 text-white"></i>
-            <span>Find Best Bus Routes</span>
-          </button>
+          <!-- Dynamic Results Container -->
+          <div id="route-results-container" class="flex-1 overflow-y-auto space-y-3 pr-1"></div>
+
         </div>
 
-        <!-- Query Results & Active Journey Container -->
-        <div id="route-results-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
-          <!-- Populated dynamically by app.js -->
+        <!-- Tab 2: Live Fleet -->
+        <div id="tab-fleet" class="flex-1 flex flex-col overflow-hidden space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">Live Buses on City Roads</h3>
+            <span class="text-xs font-semibold text-emerald-600">Active GPS</span>
+          </div>
+          <div id="fleet-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
         </div>
 
-      </div>
-
-      <!-- Tab 2: Live Nearby Buses -->
-      <div id="tab-fleet" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3 hidden">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Live Buses on City Roads (<span id="fleet-count">0</span>)</h2>
-          <span class="text-xs text-emerald-400 flex items-center space-x-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Real-time GPS</span>
-          </span>
-        </div>
-        <div id="fleet-list-container" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
-          <!-- Populated by WebSocket -->
-        </div>
-      </div>
-
-      <!-- Tab 3: Key Places Quick Select -->
-      <div id="tab-places" class="flex-1 flex flex-col overflow-hidden p-4 space-y-3 hidden">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Popular Destinations</h2>
-        <div class="space-y-2">
-          <div onclick="setQuickDestination('Thunder Bay Regional Hospital', 184)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+        <!-- Tab 3: Key Places -->
+        <div id="tab-places" class="flex-1 flex flex-col overflow-hidden space-y-2.5 hidden">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">Quick Destinations</h3>
+          
+          <div onclick="setQuickDestination('Thunder Bay Regional Hospital', 184)" 
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-lg bg-rose-500/20 text-rose-400">🏥</span>
+              <span class="p-2 rounded-xl bg-rose-50 text-rose-600 text-base">🏥</span>
               <div>
-                <h4 class="text-sm font-bold text-white">Thunder Bay Regional Hospital</h4>
-                <p class="text-xs text-slate-400">Oliver Road Medical Campus</p>
+                <h4 class="text-sm font-bold text-stone-900">Regional Hospital</h4>
+                <p class="text-xs text-stone-500">Oliver Road Medical Campus</p>
               </div>
             </div>
-            <span class="text-xs text-indigo-400 font-semibold">Select</span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400"></i>
           </div>
 
-          <div onclick="setQuickDestination('Confederation College', 190)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+          <div onclick="setQuickDestination('Confederation College', 190)" 
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">🎓</span>
+              <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600 text-base">🎓</span>
               <div>
-                <h4 class="text-sm font-bold text-white">Confederation College</h4>
-                <p class="text-xs text-slate-400">Main Campus Transit Terminal</p>
+                <h4 class="text-sm font-bold text-stone-900">Confederation College</h4>
+                <p class="text-xs text-stone-500">Main Campus Terminal</p>
               </div>
             </div>
-            <span class="text-xs text-indigo-400 font-semibold">Select</span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400"></i>
           </div>
 
-          <div onclick="setQuickDestination('Waterfront Terminal', 0)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+          <div onclick="setQuickDestination('Waterfront Terminal', 0)" 
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">⚓</span>
+              <span class="p-2 rounded-xl bg-sky-50 text-sky-600 text-base">⚓</span>
               <div>
-                <h4 class="text-sm font-bold text-white">Waterfront Transit Hub</h4>
-                <p class="text-xs text-slate-400">Downtown North Core</p>
+                <h4 class="text-sm font-bold text-stone-900">Waterfront Terminal</h4>
+                <p class="text-xs text-stone-500">Downtown North Hub</p>
               </div>
             </div>
-            <span class="text-xs text-indigo-400 font-semibold">Select</span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400"></i>
           </div>
 
-          <div onclick="setQuickDestination('City Hall Terminal', 200)" class="p-3 bg-slate-900 border border-slate-800 hover:border-indigo-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+          <div onclick="setQuickDestination('City Hall Terminal', 200)" 
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-lg bg-amber-500/20 text-amber-400">🏛</span>
+              <span class="p-2 rounded-xl bg-amber-50 text-amber-600 text-base">🏛</span>
               <div>
-                <h4 class="text-sm font-bold text-white">City Hall Terminal</h4>
-                <p class="text-xs text-slate-400">Downtown South Core</p>
+                <h4 class="text-sm font-bold text-stone-900">City Hall Terminal</h4>
+                <p class="text-xs text-stone-500">Downtown South Hub</p>
               </div>
             </div>
-            <span class="text-xs text-indigo-400 font-semibold">Select</span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400"></i>
           </div>
         </div>
+
       </div>
 
-    </aside>
+    </div>
+  </div>
 
-    <!-- Map Viewport -->
-    <main class="flex-1 h-full relative">
-      <div id="map"></div>
-
-      <!-- Live Bus Tracking HUD Floating Card -->
-      <div id="tracking-hud" class="absolute top-4 left-4 right-4 sm:left-auto sm:right-4 z-[400] bg-slate-900/95 border-2 border-cyan-500/50 backdrop-blur-xl p-4 rounded-2xl shadow-2xl max-w-sm hidden">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-2.5">
-          <div class="flex items-center space-x-2">
-            <span id="hud-bus-pill" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-indigo-600 text-white">BUS 8</span>
-            <div>
-              <h4 id="hud-bus-title" class="text-xs font-bold text-white leading-tight">Live Tracking</h4>
-              <span id="hud-bus-id" class="text-[10px] text-slate-400 font-mono">Approaching Your Stop</span>
-            </div>
-          </div>
-          <button onclick="stopTrackingBus()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
-            <i data-lucide="x" class="w-4 h-4"></i>
-          </button>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="bg-slate-950 border border-slate-800/80 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Arriving In</span>
-            <span id="hud-eta" class="text-sm font-black text-cyan-400 mono">~3 min</span>
-          </div>
-          <div class="bg-slate-950 border border-slate-800/80 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Distance</span>
-            <span id="hud-dist" class="text-sm font-black text-white mono">640m</span>
-          </div>
-          <div class="bg-slate-950 border border-slate-800/80 p-2 rounded-xl">
-            <span class="text-[10px] text-slate-400 block">Status</span>
-            <span id="hud-status" class="text-[11px] font-bold text-emerald-400">On Time</span>
-          </div>
-        </div>
-
-        <div class="mt-2.5 pt-2 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-          <span>Speed: <strong id="hud-speed" class="text-white mono">35 km/h</strong></span>
-          <span class="text-emerald-400 flex items-center space-x-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Live GPS</span>
-          </span>
+  <!-- Live Bus Tracking HUD Floating Card (Top Right of Map) -->
+  <div id="tracking-hud" class="absolute top-5 right-5 z-[400] bg-white/95 border border-stone-200/90 backdrop-blur-2xl p-4 rounded-3xl shadow-2xl max-w-xs hidden">
+    <div class="flex items-center justify-between border-b border-stone-100 pb-2.5 mb-2.5">
+      <div class="flex items-center space-x-2">
+        <span id="hud-bus-pill" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-stone-900 text-white shadow-sm">BUS 8</span>
+        <div>
+          <h4 id="hud-bus-title" class="text-xs font-bold text-stone-900 leading-tight">Live Tracking</h4>
+          <span id="hud-bus-id" class="text-[10px] text-stone-500">Approaching your stop</span>
         </div>
       </div>
+      <button onclick="stopTrackingBus()" class="p-1 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
 
-      <!-- Floating Map Overlays -->
-      <div class="absolute top-4 right-4 z-[390] flex flex-col space-y-2">
-        <button onclick="centerMapOnTransit()" title="Center Map" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
-          <i data-lucide="crosshair" class="w-4 h-4"></i>
-        </button>
-        <button onclick="toggleAllStops()" id="toggle-stops-btn" title="Toggle Stop Pins" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur transition">
-          <i data-lucide="map-pin" class="w-4 h-4 text-indigo-400"></i>
-        </button>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="bg-stone-50 border border-stone-200/60 p-2 rounded-2xl">
+        <span class="text-[10px] font-medium text-stone-500 block">Arriving</span>
+        <span id="hud-eta" class="text-sm font-black text-indigo-600">~3 min</span>
       </div>
-
-      <!-- Floating Live Ticker Banner -->
-      <div class="absolute bottom-4 left-4 right-4 sm:left-[500px] sm:right-6 z-[390] bg-slate-900/90 backdrop-blur border border-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center justify-between text-xs">
-        <div class="flex items-center space-x-3 truncate">
-          <span class="flex items-center space-x-1.5 text-emerald-400 font-semibold shrink-0">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>LIVE BUS FEED:</span>
-          </span>
-          <span id="live-ticker-text" class="text-slate-300 truncate">Tracking real-time buses in Thunder Bay...</span>
-        </div>
-        <span class="text-slate-500 mono shrink-0 hidden md:inline" id="live-clock">00:00:00</span>
+      <div class="bg-stone-50 border border-stone-200/60 p-2 rounded-2xl">
+        <span class="text-[10px] font-medium text-stone-500 block">Distance</span>
+        <span id="hud-dist" class="text-sm font-black text-stone-800">640m</span>
       </div>
+      <div class="bg-stone-50 border border-stone-200/60 p-2 rounded-2xl">
+        <span class="text-[10px] font-medium text-stone-500 block">Status</span>
+        <span id="hud-status" class="text-[11px] font-bold text-emerald-600">On Time</span>
+      </div>
+    </div>
 
-    </main>
+    <div class="mt-2.5 pt-2 border-t border-stone-100 text-[11px] text-stone-500 flex items-center justify-between">
+      <span>Speed: <strong id="hud-speed" class="text-stone-800">35 km/h</strong></span>
+      <span class="text-emerald-600 font-semibold flex items-center space-x-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+        <span>Live GPS</span>
+      </span>
+    </div>
+  </div>
 
+  <!-- Floating Map Control Buttons (Bottom Right) -->
+  <div class="absolute bottom-6 right-6 z-[390] flex flex-col space-y-2">
+    <button onclick="centerMapOnTransit()" title="Center Map" class="p-3 bg-white hover:bg-stone-50 text-stone-700 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
+      <i data-lucide="crosshair" class="w-4 h-4"></i>
+    </button>
+    <button onclick="toggleAllStops()" id="toggle-stops-btn" title="Toggle Bus Stops" class="p-3 bg-white hover:bg-stone-50 text-indigo-600 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
+      <i data-lucide="map-pin" class="w-4 h-4"></i>
+    </button>
   </div>
 
   <!-- Departures Modal / Dialog -->
-  <div id="departures-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+  <div id="departures-modal" class="fixed inset-0 z-50 bg-stone-900/30 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white border border-stone-200 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-stone-100 pb-3">
         <div>
-          <h3 id="modal-stop-name" class="text-base font-bold text-white">Stop Name</h3>
-          <span id="modal-stop-id" class="text-xs text-slate-400 mono">Stop Schedule</span>
+          <h3 id="modal-stop-name" class="text-base font-extrabold text-stone-900">Stop Name</h3>
+          <span class="text-xs text-stone-400 font-medium">Scheduled Departures</span>
         </div>
-        <button onclick="closeDeparturesModal()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="closeDeparturesModal()" class="p-1.5 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <div class="space-y-2">
-        <div class="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          <span>Upcoming Buses</span>
-          <span>Status</span>
+        <div class="flex items-center justify-between text-xs font-bold text-stone-400 uppercase tracking-wider">
+          <span>Bus Line</span>
+          <span>Departure</span>
         </div>
         <div id="modal-departures-list" class="max-h-60 overflow-y-auto space-y-2 pr-1"></div>
       </div>
 
       <div class="flex justify-end pt-2">
-        <button onclick="closeDeparturesModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white rounded-xl transition">
+        <button onclick="closeDeparturesModal()" class="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-800 rounded-xl transition">
           Close
         </button>
       </div>
     </div>
   </div>
 
-  <!-- App JavaScript Logic -->
-  <script src="app.js?v=2.2"></script>
+  <!-- App Logic -->
+  <script src="app.js?v=4.3"></script>
 </body>
 </html>
