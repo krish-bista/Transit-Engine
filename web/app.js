@@ -165,7 +165,7 @@ function showUserPositionMarker(lat, lon, stopName) {
   map.flyTo([lat, lon], 14, { duration: 1.0 });
 }
 
-// Mobile Bottom-Sheet Controller & Gestures
+// Mobile Bottom-Sheet Controller & 1:1 Real-Time Drag Physics
 let currentMobileSheetState = "peek"; // "peek", "half", "full", "minimized"
 
 function setMobileSheetState(state) {
@@ -173,6 +173,11 @@ function setMobileSheetState(state) {
   const sheet = document.getElementById("craft-drawer-card");
   const chevron = document.getElementById("mobile-chevron-icon");
   if (!sheet) return;
+
+  // Clear any temporary inline drag heights so CSS class rules take over cleanly
+  sheet.style.height = "";
+  sheet.style.maxHeight = "";
+  sheet.style.transition = "height 0.32s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1)";
 
   sheet.classList.remove("sheet-peek", "sheet-half", "sheet-full", "sheet-minimized");
   sheet.classList.add(`sheet-${state}`);
@@ -198,35 +203,97 @@ function toggleMobileSheet() {
 }
 
 function initMobileSheetGestures() {
-  const handle = document.getElementById("mobile-sheet-handle");
-  if (!handle) return;
+  const dragArea = document.getElementById("mobile-sheet-drag-area") || document.getElementById("mobile-sheet-handle");
+  const header = document.querySelector(".craft-drawer-header");
+  const sheet = document.getElementById("craft-drawer-card");
+  if (!sheet) return;
 
+  let isDragging = false;
   let startY = 0;
+  let startHeight = 0;
+  let lastY = 0;
+  let lastTime = 0;
+  let velocityY = 0;
 
-  handle.addEventListener("touchstart", (e) => {
-    startY = e.touches[0].clientY;
-  }, { passive: true });
-
-  handle.addEventListener("touchend", (e) => {
-    const endY = e.changedTouches[0].clientY;
-    const diff = startY - endY;
-
-    if (diff > 30) {
-      // Swiped Up
-      if (currentMobileSheetState === "peek" || currentMobileSheetState === "minimized") {
-        setMobileSheetState("half");
-      } else if (currentMobileSheetState === "half") {
-        setMobileSheetState("full");
-      }
-    } else if (diff < -30) {
-      // Swiped Down
-      if (currentMobileSheetState === "full") {
-        setMobileSheetState("half");
-      } else if (currentMobileSheetState === "half") {
-        setMobileSheetState("peek");
-      }
+  function onTouchStart(e) {
+    if (window.innerWidth >= 640) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('input')) {
+      return;
     }
-  }, { passive: true });
+    const touch = e.touches[0];
+    startY = touch.clientY;
+    lastY = startY;
+    lastTime = Date.now();
+    velocityY = 0;
+    startHeight = sheet.getBoundingClientRect().height;
+    isDragging = true;
+    sheet.style.transition = 'none';
+  }
+
+  function onTouchMove(e) {
+    if (!isDragging || window.innerWidth >= 640) return;
+    const touch = e.touches[0];
+    const currentY = touch.clientY;
+    const now = Date.now();
+
+    const deltaY = startY - currentY; // Upward drag = positive height increase
+    const dt = Math.max(1, now - lastTime);
+    velocityY = (lastY - currentY) / dt;
+
+    lastY = currentY;
+    lastTime = now;
+
+    const minH = 100;
+    const maxH = window.innerHeight * 0.92;
+    const newHeight = Math.max(minH, Math.min(maxH, startHeight + deltaY));
+
+    sheet.style.height = `${newHeight}px`;
+    sheet.style.maxHeight = `${newHeight}px`;
+
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function onTouchEnd() {
+    if (!isDragging || window.innerWidth >= 640) return;
+    isDragging = false;
+
+    sheet.style.transition = 'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+
+    const currentHeight = sheet.getBoundingClientRect().height;
+    const vh = window.innerHeight;
+
+    const peekH = 230;
+    const halfH = vh * 0.56;
+    const fullH = vh * 0.90;
+
+    // Fast fling momentum
+    if (velocityY > 0.30) {
+      if (currentHeight < halfH) setMobileSheetState("half");
+      else setMobileSheetState("full");
+    } else if (velocityY < -0.30) {
+      if (currentHeight > halfH) setMobileSheetState("half");
+      else setMobileSheetState("peek");
+    } else {
+      // Snap to closest anchor point
+      const dPeek = Math.abs(currentHeight - peekH);
+      const dHalf = Math.abs(currentHeight - halfH);
+      const dFull = Math.abs(currentHeight - fullH);
+
+      const minD = Math.min(dPeek, dHalf, dFull);
+      if (minD === dPeek) setMobileSheetState("peek");
+      else if (minD === dHalf) setMobileSheetState("half");
+      else setMobileSheetState("full");
+    }
+  }
+
+  [dragArea, header].forEach(el => {
+    if (el) {
+      el.addEventListener("touchstart", onTouchStart, { passive: false });
+      el.addEventListener("touchmove", onTouchMove, { passive: false });
+      el.addEventListener("touchend", onTouchEnd, { passive: true });
+      el.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    }
+  });
 }
 
 // User-Triggered GPS Button Handler
@@ -383,40 +450,56 @@ function highlightStopOnMap(stop, isOrigin = true) {
   }
 }
 
-// Autocomplete Helper
+// Autocomplete Helper with Mobile Focus Expansion
 function setupAutocomplete(inputId, resultsId, onSelect) {
   const input = document.getElementById(inputId);
   const results = document.getElementById(resultsId);
   if (!input || !results) return;
 
+  let debounceTimer = null;
+
+  input.addEventListener("focus", () => {
+    if (window.innerWidth < 640 && currentMobileSheetState === "peek") {
+      setMobileSheetState("half");
+    }
+  });
+
   input.addEventListener("input", () => {
-    const q = input.value.toLowerCase().trim();
-    if (!q) {
-      results.classList.add("hidden");
-      return;
-    }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const q = input.value.toLowerCase().trim();
+      if (!q) {
+        results.classList.add("hidden");
+        return;
+      }
 
-    const matches = stopsData.filter(s => 
-      s.name.toLowerCase().includes(q) || String(s.id).includes(q)
-    ).slice(0, 8);
+      if (window.innerWidth < 640 && currentMobileSheetState === "peek") {
+        setMobileSheetState("half");
+      }
 
-    if (matches.length === 0) {
-      results.innerHTML = `<div class="p-3 text-xs text-stone-500">No stops found. Try typing a street or landmark.</div>`;
-      results.classList.remove("hidden");
-      return;
-    }
+      const matches = stopsData.filter(s => 
+        s.name.toLowerCase().includes(q) || String(s.id).includes(q)
+      ).slice(0, 8);
 
-    results.innerHTML = matches.map(s => `
-      <div class="p-2.5 hover:bg-stone-50 cursor-pointer border-b border-stone-100 flex items-center justify-between transition"
-           onclick="selectStop('${inputId}', '${resultsId}', ${s.id})">
-        <div>
-          <p class="text-sm font-semibold text-stone-900">${s.name}</p>
+      if (matches.length === 0) {
+        results.innerHTML = `<div class="p-3 text-xs text-stone-500 text-center font-medium">No bus stops found. Try typing a street name.</div>`;
+        results.classList.remove("hidden");
+        return;
+      }
+
+      results.innerHTML = matches.map(s => `
+        <div class="autocomplete-item"
+             onpointerdown="selectStop('${inputId}', '${resultsId}', ${s.id})">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-2 h-2 rounded-full bg-indigo-600 shrink-0"></span>
+            <p class="text-sm font-bold text-stone-900">${s.name}</p>
+          </div>
+          <span class="text-xs text-indigo-600 font-extrabold px-2 py-0.5 rounded-md bg-indigo-50">Select</span>
         </div>
-        <span class="text-xs text-indigo-600 font-bold">Select</span>
-      </div>
-    `).join("");
+      `).join("");
 
-    results.classList.remove("hidden");
+      results.classList.remove("hidden");
+    }, 40);
   });
 
   document.addEventListener("click", (e) => {
@@ -431,14 +514,15 @@ function selectStop(inputId, resultsId, stopId) {
   if (stop) {
     const input = document.getElementById(inputId);
     const results = document.getElementById(resultsId);
-    if (input) input.value = stop.name;
+    if (input) {
+      input.value = stop.name;
+      input.blur();
+    }
     if (results) results.classList.add("hidden");
     if (inputId === "source-input") {
       sourceStopId = stop.id;
     } else {
       targetStopId = stop.id;
-      const sel = document.getElementById("destination-quick-select");
-      if (sel) sel.value = String(stop.id);
     }
     highlightStopOnMap(stop, inputId === "source-input");
     if (sourceStopId && targetStopId) calculateRoute();

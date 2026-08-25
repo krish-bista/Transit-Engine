@@ -16,7 +16,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css?v=5.7">
+  <link rel="stylesheet" href="styles.css?v=5.8">
 </head>
 <body class="bg-stone-100 text-stone-900 flex h-screen w-screen overflow-hidden antialiased">
 
@@ -29,13 +29,13 @@
     <!-- Elevated White Glass Sheet -->
     <div id="craft-drawer-card" class="craft-drawer sheet-peek sm:sheet-full shadow-2xl">
       
-      <!-- Mobile Tactile Drag Handle (Tappable / Swipable on mobile) -->
-      <div id="mobile-sheet-handle" onclick="toggleMobileSheet()" class="w-full flex sm:hidden flex-col items-center pt-2.5 pb-1 cursor-pointer select-none">
+      <!-- Mobile Tactile Drag Area & Handle -->
+      <div id="mobile-sheet-drag-area" class="mobile-drag-area sm:hidden flex flex-col items-center">
         <div class="mobile-drag-handle"></div>
       </div>
 
       <!-- App Header & Navigation Bar -->
-      <div class="px-5 sm:px-6 pt-2 sm:pt-5 pb-3 sm:pb-3.5 border-b border-stone-200/70 bg-white/60 flex items-center justify-between shrink-0">
+      <div class="craft-drawer-header px-5 sm:px-6 pt-2 sm:pt-5 pb-3 sm:pb-3.5 border-b border-stone-200/70 bg-white/60 flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing sm:cursor-default" style="touch-action: none;">
         <div class="flex items-center space-x-3">
           <div class="w-8 h-8 rounded-xl bg-stone-900 flex items-center justify-center text-white shadow-sm shrink-0">
             <i data-lucide="compass" class="w-4 h-4 text-stone-100"></i>
@@ -97,7 +97,7 @@
               <div class="flex-1 min-w-0 ml-2">
                 <input type="text" id="source-input" value="" placeholder="📍 Detecting your location..." autocomplete="off"
                        class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
-                <div id="source-results" class="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto hidden"></div>
+                <div id="source-results" class="autocomplete-dropdown hidden"></div>
               </div>
               <button onclick="useCurrentLocation()" title="Use my current GPS position" class="ml-2 p-2 rounded-xl text-stone-400 hover:text-indigo-600 hover:bg-indigo-50 transition shrink-0">
                 <i data-lucide="crosshair" class="w-4 h-4"></i>
@@ -121,7 +121,7 @@
               <div class="flex-1 min-w-0 ml-2">
                 <input type="text" id="target-input" value="" placeholder="Choose destination or type stop..." autocomplete="off"
                        class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
-                <div id="target-results" class="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto hidden"></div>
+                <div id="target-results" class="autocomplete-dropdown hidden"></div>
               </div>
             </div>
 
@@ -335,6 +335,6 @@
   </div>
 
   <!-- App Logic -->
-  <script src="app.js?v=5.7"></script>
+  <script src="app.js?v=5.8"></script>
 </body>
 </html>
