@@ -631,7 +631,9 @@ function renderOptionsList() {
             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-white/10 text-stone-200 border border-white/10">
               Recommended Route
             </span>
-            <span class="text-xs font-medium text-stone-400">${opt.bus_transfers === 0 ? 'Direct Bus' : `${opt.bus_transfers} Transfer`}</span>
+            <span class="text-xs font-semibold text-stone-300">
+              ${opt.itinerary.some(l => l.is_stay_on_bus) ? '🔄 Stay on Board (No Transfer)' : (opt.bus_transfers === 0 ? 'Direct Bus' : `${opt.bus_transfers} Transfer`)}
+            </span>
           </div>
 
           <div class="flex items-baseline justify-between pt-1">
@@ -749,6 +751,14 @@ function startJourney(optionIndex) {
     return `
       <div class="bg-white border border-stone-200/90 rounded-2xl p-4 space-y-3.5 shadow-sm">
         
+        <!-- In-Seat Continuation Banner -->
+        ${leg.is_stay_on_bus ? `
+          <div class="bg-indigo-50 border border-indigo-200/80 p-2.5 rounded-xl flex items-center space-x-2 text-xs text-indigo-950">
+            <span class="p-1 rounded-lg bg-indigo-600 text-white shrink-0"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></span>
+            <span><strong>Stay Seated:</strong> Bus automatically changes to Route ${leg.bus_number} (no transfer or getting off needed).</span>
+          </div>
+        ` : ''}
+
         <!-- Leg Title & Badge -->
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div class="flex items-center space-x-2.5">
@@ -761,7 +771,7 @@ function startJourney(optionIndex) {
               <h4 class="text-sm font-extrabold text-stone-900 leading-tight">${leg.bus_name}</h4>
               <span class="text-xs text-emerald-700 font-semibold flex items-center space-x-1 mt-0.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Board at ${leg.board_time_formatted}</span>
+                <span>${leg.is_stay_on_bus ? `Continues at ${leg.board_time_formatted}` : `Board at ${leg.board_time_formatted}`}</span>
               </span>
             </div>
           </div>

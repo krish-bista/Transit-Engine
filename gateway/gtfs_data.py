@@ -43,6 +43,9 @@ class GTFSDataManager:
         self.route_shapes: Dict[str, List[str]] = {}  # route_id -> list of shape_ids
         self.trips: Dict[str, Dict[str, Any]] = {}
         self.stop_times: List[Dict[str, Any]] = []
+        self.trip_stop_times: Dict[str, List[Dict[str, Any]]] = {}  # trip_id -> sorted stop times
+        self.trip_spans: Dict[str, Dict[str, Any]] = {}  # trip_id -> {start_sec, end_sec, start_stop, end_stop}
+        self.block_trips: Dict[str, List[str]] = {}  # block_id -> list of trip_ids in chronological order
         
         self.load_data()
 
@@ -115,7 +118,7 @@ class GTFSDataManager:
                 pts = group.sort_values("seq")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
                 self.shapes[str(shape_id)] = pts
 
-        # 4. Load trips.txt
+        # 4. Load trips.txt (including block_id for in-seat transfers & physical vehicle chaining)
         trips_file = os.path.join(self.raw_dir, "trips.txt")
         if not os.path.exists(trips_file):
             trips_file = os.path.join(self.raw_dir, "extracted", "trips.txt")
@@ -127,11 +130,16 @@ class GTFSDataManager:
                 rid = str(tr.get("route_id", "")).strip()
                 headsign = str(tr.get("trip_headsign", "")).strip()
                 shape_id = str(tr.get("shape_id", "")).strip()
+                block_id = str(tr.get("block_id", "")).strip()
+                service_id = str(tr.get("service_id", "")).strip()
+
                 self.trips[tid] = {
                     "trip_id": tid,
                     "route_id": rid,
                     "headsign": headsign,
-                    "shape_id": shape_id
+                    "shape_id": shape_id,
+                    "block_id": block_id,
+                    "service_id": service_id
                 }
                 if rid not in self.route_shapes:
                     self.route_shapes[rid] = []
@@ -152,14 +160,42 @@ class GTFSDataManager:
                     arr_sec = self.hms_to_sec(row["arrival_time"])
                     dep_sec = self.hms_to_sec(row["departure_time"])
                     seq_val = int(row.get("stop_sequence", 0))
-                    self.stop_times.append({
-                        "trip_id": str(row["trip_id"]).strip(),
+                    tid = str(row["trip_id"]).strip()
+
+                    st_obj = {
+                        "trip_id": tid,
                         "stop_id": sid_int,
                         "arr_sec": arr_sec,
                         "dep_sec": dep_sec,
                         "seq": seq_val,
                         "stop_sequence": seq_val
-                    })
+                    }
+                    self.stop_times.append(st_obj)
+                    if tid not in self.trip_stop_times:
+                        self.trip_stop_times[tid] = []
+                    self.trip_stop_times[tid].append(st_obj)
+
+            # Sort and build trip spans
+            for tid, st_list in self.trip_stop_times.items():
+                st_list.sort(key=lambda s: s["seq"])
+                if st_list:
+                    self.trip_spans[tid] = {
+                        "start_sec": st_list[0]["dep_sec"],
+                        "end_sec": st_list[-1]["arr_sec"],
+                        "start_stop": st_list[0]["stop_id"],
+                        "end_stop": st_list[-1]["stop_id"],
+                    }
+
+            # Build block_trips chaining
+            for tid, meta in self.trips.items():
+                bid = meta.get("block_id")
+                if bid and tid in self.trip_spans:
+                    if bid not in self.block_trips:
+                        self.block_trips[bid] = []
+                    self.block_trips[bid].append(tid)
+
+            for bid in self.block_trips:
+                self.block_trips[bid].sort(key=lambda t: self.trip_spans.get(t, {}).get("start_sec", 0))
 
     @staticmethod
     def hms_to_sec(hms_str: str) -> int:
@@ -218,7 +254,6 @@ class GTFSDataManager:
             if len(pts) < 2:
                 continue
 
-            # Find closest shape points
             b_idx = min(range(len(pts)), key=lambda i: (pts[i][0] - b_lat)**2 + (pts[i][1] - b_lon)**2)
             a_idx = min(range(len(pts)), key=lambda i: (pts[i][0] - a_lat)**2 + (pts[i][1] - a_lon)**2)
 
@@ -240,6 +275,87 @@ class GTFSDataManager:
             return [[b_lat, b_lon]] + intermediate_stops_coords + [[a_lat, a_lon]]
 
         return [[b_lat, b_lon], [a_lat, a_lon]]
+
+    def get_vehicle_position_along_trip(self, trip_id: str, time_sec: int) -> Optional[Dict[str, Any]]:
+        """
+        Calculates the exact GPS road coordinate of a vehicle on a specific GTFS trip at a given second of the day.
+        """
+        st_list = self.trip_stop_times.get(trip_id)
+        if not st_list or len(st_list) < 2:
+            return None
+
+        trip_meta = self.trips.get(trip_id, {})
+        route_id = trip_meta.get("route_id", "")
+        shape_id = trip_meta.get("shape_id", "")
+
+        # Find the two bounding stops
+        prev_st = st_list[0]
+        next_st = st_list[-1]
+
+        if time_sec <= prev_st["dep_sec"]:
+            s_obj = self.get_stop(prev_st["stop_id"])
+            if not s_obj: return None
+            return {
+                "lat": s_obj["lat"],
+                "lon": s_obj["lon"],
+                "speed_kmh": 0.0,
+                "current_stop_id": prev_st["stop_id"],
+                "next_stop_id": st_list[1]["stop_id"] if len(st_list) > 1 else prev_st["stop_id"],
+                "progress": 0.0
+            }
+
+        if time_sec >= next_st["arr_sec"]:
+            s_obj = self.get_stop(next_st["stop_id"])
+            if not s_obj: return None
+            return {
+                "lat": s_obj["lat"],
+                "lon": s_obj["lon"],
+                "speed_kmh": 0.0,
+                "current_stop_id": next_st["stop_id"],
+                "next_stop_id": next_st["stop_id"],
+                "progress": 1.0
+            }
+
+        for i in range(len(st_list) - 1):
+            if st_list[i]["dep_sec"] <= time_sec <= st_list[i+1]["arr_sec"]:
+                prev_st = st_list[i]
+                next_st = st_list[i+1]
+                break
+
+        s1 = self.get_stop(prev_st["stop_id"])
+        s2 = self.get_stop(next_st["stop_id"])
+        if not s1 or not s2:
+            return None
+
+        duration = max(1, next_st["arr_sec"] - prev_st["dep_sec"])
+        elapsed = max(0, time_sec - prev_st["dep_sec"])
+        ratio = min(1.0, max(0.0, elapsed / duration))
+
+        # Get shape segment between stops
+        seg = self.get_shape_segment(route_id, s1["lat"], s1["lon"], s2["lat"], s2["lon"])
+        if len(seg) >= 2:
+            idx = int(ratio * (len(seg) - 1))
+            pt = seg[min(idx, len(seg) - 1)]
+            lat, lon = pt[0], pt[1]
+        else:
+            lat = s1["lat"] + (s2["lat"] - s1["lat"]) * ratio
+            lon = s1["lon"] + (s2["lon"] - s1["lon"]) * ratio
+
+        # Compute speed
+        dlat = math.radians(s2["lat"] - s1["lat"])
+        dlon = math.radians(s2["lon"] - s1["lon"])
+        a = math.sin(dlat / 2.0)**2 + math.cos(math.radians(s1["lat"])) * math.cos(math.radians(s2["lat"])) * math.sin(dlon / 2.0)**2
+        dist_m = 2.0 * 6371000.0 * math.asin(math.sqrt(a))
+        speed_kmh = round(min(55.0, max(15.0, (dist_m / duration) * 3.6)), 1)
+
+        return {
+            "lat": lat,
+            "lon": lon,
+            "speed_kmh": speed_kmh,
+            "current_stop_id": prev_st["stop_id"],
+            "next_stop_id": next_st["stop_id"],
+            "progress": ratio
+        }
 
     def get_upcoming_departures(self, stop_id: int, current_sec: int, limit: int = 10) -> List[Dict[str, Any]]:
         departures = []

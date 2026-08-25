@@ -1,25 +1,20 @@
 import os
 import time
-import json
 import math
 import asyncio
-from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
+from typing import List, Dict, Any, Optional
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
 from raptor_engine import RaptorEngine
 
-app = FastAPI(
-    title="City Transit Guide API",
-    description="Real-Time Passenger Transit Router with Step-by-Step Directions and Live Road GPS Tracking.",
-    version="2.2.0"
-)
+app = FastAPI(title="Transit Engine", version="2.5.0")
 
-# Enable CORS
+# Enable CORS for open mobile access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,11 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Data & Routing Engines
+# Load GTFS Engine
 data_manager = GTFSDataManager()
 raptor_engine = RaptorEngine(data_manager.stops, data_manager.stop_times, data_manager.routes, data_manager.trips)
 
-# WebSocket client manager
+# WebSocket Connection Manager
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -83,7 +78,7 @@ def serve_root():
     index_path = os.path.join(WEB_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"system": "City Transit", "version": "2.2.0", "status": "online"}
+    return {"system": "City Transit", "version": "2.5.0", "status": "online"}
 
 @app.get("/styles.css", include_in_schema=False)
 def serve_styles():
@@ -133,93 +128,61 @@ def get_routes():
 @app.get("/api/stops/{stop_id}/departures")
 def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
     if time_sec is None:
-        time_sec = 31620
+        t = time.localtime()
+        time_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
     departures = data_manager.get_upcoming_departures(stop_id, time_sec)
     for dep in departures:
         tid = dep["trip_id"]
         if tid in live_delays:
-            dep["delay_sec"] = live_delays[tid].get("delay", 0)
-    return {
-        "stop_id": stop_id,
-        "current_time": data_manager.sec_to_hms(time_sec),
-        "departures": departures
-    }
+            dep["delay_sec"] = live_delays[tid].get("delay_sec", 0)
+    return {"stop_id": stop_id, "departures": departures}
 
-def find_live_vehicle_for_route(bus_number: str, board_stop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    target_v = None
+def find_live_vehicle_for_route(bus_number: str, board_stop: dict) -> Optional[dict]:
+    b_num = str(bus_number).strip().upper()
+    best_v = None
+    min_d = float("inf")
+
     for v in live_vehicles:
-        if str(v.get("route_id", "")).strip().lower() == bus_number.strip().lower():
-            target_v = v
-            break
-    if not target_v and live_vehicles:
-        target_v = live_vehicles[0]
+        v_rid = str(v.get("route_id", "")).strip().upper()
+        if v_rid == b_num:
+            d_lat = (v["lat"] - board_stop["lat"]) * 111320
+            d_lon = (v["lon"] - board_stop["lon"]) * 111320 * math.cos(math.radians(board_stop["lat"]))
+            dist = math.sqrt(d_lat**2 + d_lon**2)
+            if dist < min_d:
+                min_d = dist
+                best_v = dict(v)
+                best_v["distance_to_stop_m"] = int(dist)
+                best_v["eta_minutes"] = max(1, int(dist / 9.5 / 60))
 
-    if not target_v or not board_stop:
-        return None
-
-    try:
-        v_lat = float(target_v.get("lat", 0.0))
-        v_lon = float(target_v.get("lon", 0.0))
-        b_lat = float(board_stop.get("lat", 0.0))
-        b_lon = float(board_stop.get("lon", 0.0))
-
-        d_lat = (v_lat - b_lat) * 111320
-        d_lon = (v_lon - b_lon) * 111320 * math.cos(math.radians(b_lat))
-        dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
-        speed_mps = max(5.0, (float(target_v.get("speed_kmh", 35)) * 1000 / 3600))
-        eta_mins = max(1, int(dist_m / speed_mps / 60))
-
-        return {
-            "vehicle_id": str(target_v.get("vehicle_id", "")),
-            "route_id": str(target_v.get("route_id", "")),
-            "bus_name": target_v.get("bus_name", f"Bus {target_v.get('route_id', '')}"),
-            "route_color": target_v.get("route_color", "#4338CA"),
-            "lat": v_lat,
-            "lon": v_lon,
-            "speed_kmh": round(float(target_v.get("speed_kmh", 35))),
-            "delay_sec": int(target_v.get("delay_sec", 0)),
-            "delay_text": f"+{round(int(target_v.get('delay_sec', 0))/60)}m delay" if int(target_v.get("delay_sec", 0)) > 60 else "On Time",
-            "distance_m": dist_m,
-            "eta_mins": eta_mins
-        }
-    except Exception:
-        return None
+    return best_v
 
 def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
-    t_start = time.perf_counter()
-    raw_path = raptor_engine.plan_route(source_id, target_id, dep_sec)
-    latency_ms = (time.perf_counter() - t_start) * 1000.0
+    t0 = time.time()
+    itinerary_raw = raptor_engine.plan_route(source_id, target_id, dep_sec)
+    latency_ms = round((time.time() - t0) * 1000, 2)
 
-    if not raw_path:
+    if not itinerary_raw:
         return None, latency_ms
+
+    # Identify first transit bus boarding timestamp for backward walk sync
+    first_bus_boarding_sec = None
+    for leg in itinerary_raw:
+        is_walk = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
+        if not is_walk:
+            first_bus_boarding_sec = leg["board_time"]
+            break
 
     formatted_legs = []
     first_board = None
     last_alight = None
-    transit_transfers = 0
+    physical_transfers = 0
 
-    # Align initial walking leg(s) with actual first bus departure schedule
-    first_bus_idx = None
-    for i, leg in enumerate(raw_path):
-        is_w = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
-        if not is_w:
-            first_bus_idx = i
-            break
-
-    if first_bus_idx is not None and first_bus_idx > 0:
-        bus_dep = raw_path[first_bus_idx]["board_time"]
-        curr_time = bus_dep
-        for i in range(first_bus_idx - 1, -1, -1):
-            dur = max(30, raw_path[i]["alight_time"] - raw_path[i]["board_time"])
-            raw_path[i]["alight_time"] = curr_time
-            raw_path[i]["board_time"] = curr_time - dur
-            curr_time = raw_path[i]["board_time"]
-
-    for i, leg in enumerate(raw_path):
+    for i, leg in enumerate(itinerary_raw):
         b_stop = data_manager.get_stop(leg["board_stop"]) or {"id": leg["board_stop"], "name": f"Stop {leg['board_stop']}", "lat": 0, "lon": 0}
         a_stop = data_manager.get_stop(leg["alight_stop"]) or {"id": leg["alight_stop"], "name": f"Stop {leg['alight_stop']}", "lat": 0, "lon": 0}
 
         is_walking = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
+        is_stay_on_bus = False
 
         if is_walking:
             bus_number = "Walk"
@@ -234,20 +197,47 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
                 [b_stop.get("lat", 0.0), b_stop.get("lon", 0.0)],
                 [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
             ]
+
+            # Backward schedule synchronization for initial walking leg
+            if i == 0 and first_bus_boarding_sec is not None:
+                walk_duration = max(60, leg["alight_time"] - leg["board_time"])
+                leg["alight_time"] = first_bus_boarding_sec
+                leg["board_time"] = max(dep_sec, first_bus_boarding_sec - walk_duration)
         else:
-            transit_transfers += 1
             raw_rid = str(leg.get("real_route_id", "")).strip()
             route_meta = data_manager.routes.get(raw_rid, {})
             bus_number = route_meta.get("short_name", raw_rid) or raw_rid
             bus_line_name = route_meta.get("long_name", "")
             headsign = leg.get("headsign", "")
 
-            if bus_line_name and bus_line_name.lower() not in headsign.lower():
+            # Check for In-Seat Block Chaining (Stay on Board)
+            prev_transit_leg = None
+            for prev in reversed(formatted_legs):
+                if not prev["is_walking"]:
+                    prev_transit_leg = prev
+                    break
+
+            if prev_transit_leg:
+                p_tid = prev_transit_leg.get("trip_id")
+                c_tid = leg.get("trip_id")
+                p_meta = data_manager.trips.get(p_tid, {})
+                c_meta = data_manager.trips.get(c_tid, {})
+                p_block = p_meta.get("block_id")
+                c_block = c_meta.get("block_id")
+                if (p_block and c_block and p_block == c_block) or (prev_transit_leg["alight_stop"]["id"] == b_stop["id"] and abs(leg["board_time"] - prev_transit_leg["alight_time_sec"]) <= 300):
+                    is_stay_on_bus = True
+
+            if is_stay_on_bus and prev_transit_leg:
+                bus_name = f"Bus {bus_number}" + (f" ({headsign})" if headsign else "")
+                action_title = f"Stay on board • Bus {prev_transit_leg['bus_number']} continues as Route {bus_number} ({bus_line_name or headsign})"
+            elif bus_line_name and bus_line_name.lower() not in headsign.lower():
                 bus_name = f"Bus {bus_number} ({bus_line_name})"
                 action_title = f"Take the {bus_number} {bus_line_name} bus"
+                physical_transfers += 1
             else:
                 bus_name = f"Bus {bus_number}" + (f" ({headsign})" if headsign else "")
                 action_title = f"Take the {bus_number} bus" + (f" ({headsign})" if headsign else "")
+                physical_transfers += 1
 
             route_color = route_meta.get("color", "#4338CA")
             route_text_color = route_meta.get("text_color", "#FFFFFF")
@@ -271,11 +261,18 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
         dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
 
         stops_count = leg.get("stops_count", 1)
-        ride_summary = f"Ride {stops_count} stop{'s' if stops_count > 1 else ''} (~{duration_mins} min)" if not is_walking else f"{dist_m}m walk"
+        if is_stay_on_bus:
+            ride_summary = f"Stay on board ({stops_count} stops • ~{duration_mins} min)"
+        elif is_walking:
+            ride_summary = f"{dist_m}m walk"
+        else:
+            ride_summary = f"Ride {stops_count} stop{'s' if stops_count > 1 else ''} (~{duration_mins} min)"
 
         formatted_legs.append({
             "leg_index": i + 1,
             "is_walking": is_walking,
+            "is_stay_on_bus": is_stay_on_bus,
+            "trip_id": leg.get("trip_id"),
             "bus_number": bus_number,
             "bus_line_name": bus_line_name,
             "bus_name": bus_name,
@@ -314,7 +311,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
         "departure_time": data_manager.sec_to_hms(first_board),
         "arrival_time": data_manager.sec_to_hms(last_alight),
         "total_duration_mins": total_duration_mins,
-        "bus_transfers": max(0, transit_transfers - 1),
+        "bus_transfers": max(0, physical_transfers - 1),
         "first_bus_label": first_bus_label,
         "departure_sec": first_board,
         "first_bus_sec": first_bus_sec or (first_board + 300),
@@ -326,7 +323,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
 def plan_route(req: RoutePlanRequest):
     dep_sec = 0
     if req.departure_time is None or req.departure_time == "now":
-        # Current local time
+        # Current local time in Thunder Bay
         t = time.localtime()
         dep_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
     elif isinstance(req.departure_time, str) and ":" in req.departure_time:
@@ -393,101 +390,81 @@ def plan_route(req: RoutePlanRequest):
         "arrival_time": options[0]["arrival_time"]
     }
 
-@app.get("/api/live/vehicles")
-def get_live_vehicles():
-    return live_vehicles
-
-# Real-time Background Vehicle Simulator driving on TRUE road shape coordinates
+# Schedule-Exact Block Vehicle Telemetry Worker
 async def telemetry_background_worker():
     stops = data_manager.stops
     if not stops:
         return
 
-    # Real Thunder Bay Transit Bus Lines
-    active_bus_lines = [
-        ("1", "Mainline"),
-        ("2", "Crosstown"),
-        ("3C", "County Park"),
-        ("3M", "Memorial"),
-        ("5", "Edward"),
-        ("8", "James"),
-        ("9", "Junot"),
-        ("10", "Northwood"),
-        ("11", "John"),
-        ("12", "East End"),
-        ("14", "Arthur"),
-        ("16", "Balmoral"),
-        ("17", "Current River"),
-        ("18", "Westfort")
-    ]
-    
-    vehicles = []
-    for i, (rid, rname) in enumerate(active_bus_lines):
-        meta = THUNDER_BAY_ROUTES.get(rid, {})
-        color = meta.get("color", "#4338CA")
-        
-        # Get true road shape coordinates from data_manager.shapes
-        sids = data_manager.route_shapes.get(rid, [])
-        pts = []
-        for sid in sids:
-            cand = data_manager.shapes.get(sid, [])
-            if len(cand) > len(pts):
-                pts = cand
-
-        if not pts or len(pts) < 2:
-            pts = [[48.406 + (i * 0.005), -89.260 + (i * 0.005)], [48.426, -89.270]]
-
-        start_pt_idx = (i * 15) % max(1, len(pts))
-        init_pt = pts[start_pt_idx]
-
-        vehicles.append({
-            "vehicle_id": f"BUS-{100 + i + 1}",
-            "route_id": rid,
-            "route_name": rname,
-            "bus_name": f"Bus {rid} ({rname})",
-            "route_color": color,
-            "shape_pts": pts,
-            "current_pt_idx": start_pt_idx,
-            "direction": 1 if (i % 2 == 0) else -1,
-            "lat": float(init_pt[0]),
-            "lon": float(init_pt[1]),
-            "speed_kmh": 34.0 + (i % 8),
-            "delay_sec": (i * 20) % 120,
-            "heading": 0
-        })
+    # Select primary active transit blocks representing city fleet
+    all_blocks = list(data_manager.block_trips.keys())
 
     while True:
         try:
-            for v in vehicles:
-                pts = v["shape_pts"]
-                if len(pts) > 1:
-                    v["current_pt_idx"] += v["direction"]
-                    if v["current_pt_idx"] >= len(pts) - 1:
-                        v["direction"] = -1
-                        v["current_pt_idx"] = len(pts) - 1
-                    elif v["current_pt_idx"] <= 0:
-                        v["direction"] = 1
-                        v["current_pt_idx"] = 0
+            t = time.localtime()
+            current_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
 
-                    next_pt = pts[v["current_pt_idx"]]
-                    v["lat"] = float(next_pt[0])
-                    v["lon"] = float(next_pt[1])
+            updated_vehicles = []
+            seen_routes = set()
+
+            for bid in all_blocks:
+                tids = data_manager.block_trips.get(bid, [])
+                if not tids:
+                    continue
+
+                # Find currently active trip in this block at this second
+                active_tid = None
+                for tid in tids:
+                    span = data_manager.trip_spans.get(tid, {})
+                    if span.get("start_sec", 0) <= current_sec <= span.get("end_sec", 0):
+                        active_tid = tid
+                        break
+
+                # If between trips, find next upcoming trip
+                if not active_tid:
+                    for tid in tids:
+                        span = data_manager.trip_spans.get(tid, {})
+                        if span.get("start_sec", 0) >= current_sec:
+                            active_tid = tid
+                            break
+                    if not active_tid:
+                        active_tid = tids[-1]
+
+                if active_tid:
+                    t_meta = data_manager.trips.get(active_tid, {})
+                    rid = t_meta.get("route_id", "")
+                    r_meta = data_manager.routes.get(rid, {})
+                    short_name = r_meta.get("short_name", rid)
+                    headsign = t_meta.get("headsign", "")
+
+                    pos = data_manager.get_vehicle_position_along_trip(active_tid, current_sec)
+                    if pos and pos.get("lat") and pos.get("lon"):
+                        # Ensure one primary vehicle per route line for clean display
+                        v_key = f"{short_name}_{headsign[:10]}"
+                        if v_key in seen_routes and len(updated_vehicles) > 18:
+                            continue
+                        seen_routes.add(v_key)
+
+                        updated_vehicles.append({
+                            "vehicle_id": f"BUS-{bid[-3:] if len(bid) >= 3 else bid}",
+                            "block_id": bid,
+                            "trip_id": active_tid,
+                            "route_id": short_name,
+                            "route_name": r_meta.get("long_name", f"Route {short_name}"),
+                            "bus_name": f"Bus {short_name} ({headsign or r_meta.get('long_name', '')})",
+                            "route_color": r_meta.get("color", "#4338CA"),
+                            "lat": float(pos["lat"]),
+                            "lon": float(pos["lon"]),
+                            "speed_kmh": float(pos["speed_kmh"]),
+                            "delay_sec": 0
+                        })
+
+                        if len(updated_vehicles) >= 20:
+                            break
 
             global live_vehicles
-            live_vehicles = [
-                {
-                    "vehicle_id": v["vehicle_id"],
-                    "route_id": v["route_id"],
-                    "route_name": v["route_name"],
-                    "bus_name": v["bus_name"],
-                    "route_color": v["route_color"],
-                    "lat": float(v["lat"]),
-                    "lon": float(v["lon"]),
-                    "speed_kmh": float(v["speed_kmh"]),
-                    "delay_sec": int(v["delay_sec"])
-                }
-                for v in vehicles
-            ]
+            if updated_vehicles:
+                live_vehicles = updated_vehicles
 
             if ws_manager.active_connections:
                 payload = {
@@ -497,7 +474,7 @@ async def telemetry_background_worker():
                 }
                 await ws_manager.broadcast(payload)
 
-        except Exception:
+        except Exception as e:
             pass
 
         await asyncio.sleep(1.5)
