@@ -1,16 +1,31 @@
 import os
+import sys
 import time
 import math
 import asyncio
 from typing import List, Dict, Any, Optional
+
+# Ensure gateway directory and project root are always in sys.path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
-from raptor_engine import RaptorEngine
+try:
+    from gateway.gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
+    from gateway.raptor_engine import RaptorEngine
+except ImportError:
+    from gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
+    from raptor_engine import RaptorEngine
 
 app = FastAPI(title="Transit Engine", version="2.5.0")
 
