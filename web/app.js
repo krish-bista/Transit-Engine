@@ -267,34 +267,10 @@ async function useCurrentLocation() {
   );
 }
 
-// Destination Dropdown Selector Handler
-function onQuickSelectDestination(stopIdStr) {
-  if (!stopIdStr) return;
-  const sid = parseInt(stopIdStr);
-  const stop = stopsData.find(s => s.id === sid);
-  
-  if (stop) {
-    targetStopId = stop.id;
-    const input = document.getElementById("target-input");
-    if (input) input.value = stop.name;
-
-    if (!sourceStopId) {
-      sourceStopId = 217;
-      const sInput = document.getElementById("source-input");
-      if (sInput && !sInput.value) sInput.value = "Edward & Gordon";
-    }
-
-    highlightStopOnMap(stop, false);
-    calculateRoute();
-  }
-}
-
 function setQuickDestination(name, stopId) {
   targetStopId = stopId;
   const input = document.getElementById("target-input");
   if (input) input.value = name;
-  const sel = document.getElementById("destination-quick-select");
-  if (sel) sel.value = String(stopId);
 
   if (!sourceStopId) {
     sourceStopId = 217;
@@ -394,8 +370,6 @@ function setAsDestination(stopId) {
     targetStopId = stop.id;
     const input = document.getElementById("target-input");
     if (input) input.value = stop.name;
-    const sel = document.getElementById("destination-quick-select");
-    if (sel) sel.value = String(stopId);
     map.closePopup();
     renderStopPins();
     calculateRoute();
