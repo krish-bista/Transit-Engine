@@ -50,13 +50,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 function initMap() {
   map = L.map("map", {
     zoomControl: false,
-    attributionControl: false
+    attributionControl: false,
+    preferCanvas: true,
+    renderer: L.canvas({ padding: 0.5 }),
+    wheelDebounceTime: 40,
+    wheelPxPerZoomLevel: 120,
+    fadeAnimation: true,
+    zoomAnimation: true,
+    markerZoomAnimation: true,
+    bounceAtZoomLimits: false,
+    tap: false
   }).setView([48.406, -89.260], 13);
 
   // CartoDB Voyager tiles (crisp street labels, parks, water, clean human aesthetic)
   L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     maxZoom: 19,
-    subdomains: "abcd"
+    subdomains: "abcd",
+    updateWhenIdle: false,
+    updateWhenZooming: false
   }).addTo(map);
 
   stopMarkersLayer = L.layerGroup().addTo(map);
@@ -319,25 +330,28 @@ async function loadRoutes() {
   }
 }
 
-// Render Stop Dots
+// Render Stop Dots (High-performance GPU Canvas rendering)
 function renderStopPins() {
-  if (!stopMarkersLayer) return;
+  if (!stopMarkersLayer || !map) return;
   stopMarkersLayer.clearLayers();
   if (!showStopPins) return;
 
-  stopsData.forEach(stop => {
-    let pinClass = "transit-stop-dot";
-    if (stop.id === sourceStopId) pinClass += " origin";
-    if (stop.id === targetStopId) pinClass += " destination";
+  const canvasRenderer = L.canvas({ padding: 0.5 });
 
-    const icon = L.divIcon({
-      className: "stop-pin-wrapper",
-      html: `<div class="${pinClass}" title="${stop.name}"></div>`,
-      iconSize: [12, 12],
-      iconAnchor: [6, 6]
+  stopsData.forEach(stop => {
+    const isOrigin = (stop.id === sourceStopId);
+    const isDest = (stop.id === targetStopId);
+    const isSpecial = isOrigin || isDest;
+
+    const marker = L.circleMarker([stop.lat, stop.lon], {
+      radius: isSpecial ? 7 : 4,
+      color: isOrigin ? '#4338ca' : (isDest ? '#047857' : '#9ca3af'),
+      weight: isSpecial ? 3 : 1.5,
+      fillColor: isOrigin ? '#6366f1' : (isDest ? '#10b981' : '#f4f4f5'),
+      fillOpacity: isSpecial ? 1 : 0.8,
+      renderer: canvasRenderer
     });
 
-    const marker = L.marker([stop.lat, stop.lon], { icon });
     marker.bindPopup(`
       <div class="p-2 space-y-1.5 text-stone-900 font-sans">
         <h4 class="font-bold text-sm text-stone-900">${stop.name}</h4>
@@ -1051,66 +1065,80 @@ function initWebSocket() {
   }
 }
 
+let activeTabName = 'planner';
+let isUpdatingVehicles = false;
+let lastFleetRenderTime = 0;
+
 function updateLiveVehicles(vehicles) {
-  if (!vehicles) return;
+  if (!vehicles || isUpdatingVehicles) return;
+  isUpdatingVehicles = true;
 
-  const telemetryText = document.getElementById("telemetry-status-text");
-  if (telemetryText) telemetryText.innerText = `${vehicles.length} buses moving`;
+  requestAnimationFrame(() => {
+    const telemetryText = document.getElementById("telemetry-status-text");
+    if (telemetryText && telemetryText.innerText !== `${vehicles.length} buses moving`) {
+      telemetryText.innerText = `${vehicles.length} buses moving`;
+    }
 
-  vehicles.forEach(v => {
-    const vid = v.vehicle_id;
-    const isTracked = (vid === trackedVehicleId);
+    vehicles.forEach(v => {
+      const vid = v.vehicle_id;
+      const isTracked = (vid === trackedVehicleId);
 
-    if (!busMarkers[vid]) {
-      const icon = L.divIcon({
-        className: "transit-pill-wrapper",
-        html: `
-          <div class="transit-bus-pill ${isTracked ? 'tracked' : ''}" style="background-color: ${v.route_color};">
-            <span>${v.route_id}</span>
+      if (!busMarkers[vid]) {
+        const icon = L.divIcon({
+          className: "transit-pill-wrapper",
+          html: `
+            <div class="transit-bus-pill ${isTracked ? 'tracked' : ''}" style="background-color: ${v.route_color};">
+              <span>${v.route_id}</span>
+            </div>
+          `,
+          iconSize: [36, 24],
+          iconAnchor: [18, 12]
+        });
+
+        const marker = L.marker([v.lat, v.lon], { icon }).addTo(map);
+        marker.bindPopup(`
+          <div class="p-2 space-y-1 text-stone-900 font-sans">
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm" style="background: ${v.route_color}">${v.bus_name || `Bus ${v.route_id}`}</span>
+              <h4 class="font-bold text-sm">${v.vehicle_id}</h4>
+            </div>
+            <div class="flex items-center justify-between text-xs pt-1 border-t border-stone-100 mt-1">
+              <span>Speed: ${Math.round(v.speed_kmh)} km/h</span>
+              <span class="font-bold text-emerald-700">On Time</span>
+            </div>
           </div>
-        `,
-        iconSize: [36, 24],
-        iconAnchor: [18, 12]
-      });
-
-      const marker = L.marker([v.lat, v.lon], { icon }).addTo(map);
-      marker.bindPopup(`
-        <div class="p-2 space-y-1 text-stone-900 font-sans">
-          <div class="flex items-center space-x-2">
-            <span class="px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm" style="background: ${v.route_color}">${v.bus_name || `Bus ${v.route_id}`}</span>
-            <h4 class="font-bold text-sm">${v.vehicle_id}</h4>
-          </div>
-          <div class="flex items-center justify-between text-xs pt-1 border-t border-stone-100 mt-1">
-            <span>Speed: ${Math.round(v.speed_kmh)} km/h</span>
-            <span class="font-bold text-emerald-700">On Time</span>
-          </div>
-        </div>
-      `);
-      busMarkers[vid] = marker;
-      if (window.lucide) lucide.createIcons();
-    } else {
-      busMarkers[vid].setLatLng([v.lat, v.lon]);
-      const el = busMarkers[vid].getElement();
-      if (el) {
-        const pill = el.querySelector(".transit-bus-pill");
-        if (pill) {
-          if (isTracked) pill.classList.add("tracked");
-          else pill.classList.remove("tracked");
+        `);
+        busMarkers[vid] = marker;
+      } else {
+        busMarkers[vid].setLatLng([v.lat, v.lon]);
+        const el = busMarkers[vid].getElement();
+        if (el) {
+          const pill = el.querySelector(".transit-bus-pill");
+          if (pill) {
+            if (isTracked) pill.classList.add("tracked");
+            else pill.classList.remove("tracked");
+          }
         }
       }
+    });
+
+    if (trackedVehicleId) {
+      updateTrackedBusDisplay();
     }
+
+    const now = Date.now();
+    if (activeTabName === 'fleet' && (now - lastFleetRenderTime > 2000)) {
+      lastFleetRenderTime = now;
+      renderFleetList(vehicles);
+    }
+
+    isUpdatingVehicles = false;
   });
-
-  if (trackedVehicleId) {
-    updateTrackedBusDisplay();
-  }
-
-  renderFleetList(vehicles);
 }
 
 function renderFleetList(vehicles) {
   const container = document.getElementById("fleet-list-container");
-  if (!container || container.offsetParent === null) return;
+  if (!container) return;
 
   container.innerHTML = vehicles.map(v => `
     <div class="bg-white border border-stone-200/90 p-3.5 rounded-2xl space-y-2 hover:border-stone-800 transition cursor-pointer shadow-sm btn-tactile"
@@ -1192,6 +1220,7 @@ function closeDeparturesModal() {
 
 // Tab Switching
 function switchTab(tabId) {
+  activeTabName = tabId;
   ["planner", "fleet", "places"].forEach(t => {
     const el = document.getElementById(`tab-${t}`);
     const btn = document.getElementById(`tab-${t}-btn`);
