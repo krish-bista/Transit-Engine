@@ -118,6 +118,22 @@ def serve_styles():
 def serve_app_js():
     return FileResponse(os.path.join(WEB_DIR, "app.js"))
 
+@app.get("/manifest.json", include_in_schema=False)
+def serve_manifest():
+    return FileResponse(os.path.join(WEB_DIR, "manifest.json"), media_type="application/manifest+json")
+
+@app.get("/sw.js", include_in_schema=False)
+def serve_sw():
+    return FileResponse(os.path.join(WEB_DIR, "sw.js"), media_type="application/javascript",
+                       headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"})
+
+@app.get("/icons/{icon_name}", include_in_schema=False)
+def serve_icon(icon_name: str):
+    icon_path = os.path.join(WEB_DIR, "icons", icon_name)
+    if os.path.exists(icon_path):
+        return FileResponse(icon_path, media_type="image/png")
+    return {"error": "Icon not found"}
+
 @app.get("/api/health")
 def health():
     return {
