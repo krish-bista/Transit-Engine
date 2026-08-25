@@ -46,6 +46,7 @@ class GTFSDataManager:
         self.trip_stop_times: Dict[str, List[Dict[str, Any]]] = {}  # trip_id -> sorted stop times
         self.trip_spans: Dict[str, Dict[str, Any]] = {}  # trip_id -> {start_sec, end_sec, start_stop, end_stop}
         self.block_trips: Dict[str, List[str]] = {}  # block_id -> list of trip_ids in chronological order
+        self.calendar_dates: Dict[str, List[str]] = {}  # date (YYYYMMDD) -> list of service_ids
         
         self.load_data()
 
@@ -118,7 +119,7 @@ class GTFSDataManager:
                 pts = group.sort_values("seq")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
                 self.shapes[str(shape_id)] = pts
 
-        # 4. Load trips.txt (including block_id for in-seat transfers & physical vehicle chaining)
+        # 4. Load trips.txt
         trips_file = os.path.join(self.raw_dir, "trips.txt")
         if not os.path.exists(trips_file):
             trips_file = os.path.join(self.raw_dir, "extracted", "trips.txt")
@@ -196,6 +197,89 @@ class GTFSDataManager:
 
             for bid in self.block_trips:
                 self.block_trips[bid].sort(key=lambda t: self.trip_spans.get(t, {}).get("start_sec", 0))
+
+        # 6. Load calendar_dates.txt
+        cal_file = os.path.join(self.raw_dir, "calendar_dates.txt")
+        if not os.path.exists(cal_file):
+            cal_file = os.path.join(self.raw_dir, "extracted", "calendar_dates.txt")
+
+        if os.path.exists(cal_file):
+            df_cal = pd.read_csv(cal_file, dtype=str)
+            for _, r in df_cal.iterrows():
+                dt = str(r.get("date", "")).strip()
+                sid = str(r.get("service_id", "")).strip()
+                if dt:
+                    if dt not in self.calendar_dates:
+                        self.calendar_dates[dt] = []
+                    if sid not in self.calendar_dates[dt]:
+                        self.calendar_dates[dt].append(sid)
+
+    def get_active_service_ids(self, date_str: Optional[str] = None, day_of_week: Optional[int] = None) -> List[str]:
+        if date_str and date_str in self.calendar_dates:
+            return self.calendar_dates[date_str]
+        if day_of_week is None:
+            day_of_week = 0
+        if day_of_week < 5:
+            return ["1045", "1050"]
+        elif day_of_week == 5:
+            return ["1046", "1051"]
+        else:
+            return ["1047", "1049"]
+
+    def get_live_active_vehicles(self, current_sec: int, date_str: Optional[str] = None, day_of_week: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Returns ONLY vehicles that are strictly currently driving on a scheduled trip right now.
+        No ghost vehicles, no duplicate vehicles, no parked vehicles from old trips.
+        """
+        active_services = set(self.get_active_service_ids(date_str, day_of_week))
+        live_list = []
+        seen_blocks = set()
+
+        for tid, meta in self.trips.items():
+            if meta.get("service_id") not in active_services:
+                continue
+
+            span = self.trip_spans.get(tid)
+            if not span:
+                continue
+
+            # Strict check: Bus is ONLY active between scheduled departure from first stop and arrival at last stop
+            if span["start_sec"] <= current_sec <= span["end_sec"]:
+                bid = meta.get("block_id") or tid
+                if bid in seen_blocks:
+                    continue
+                seen_blocks.add(bid)
+
+                pos = self.get_vehicle_position_along_trip(tid, current_sec)
+                if not pos or not pos.get("lat") or not pos.get("lon"):
+                    continue
+
+                rid = meta.get("route_id", "")
+                r_meta = self.routes.get(rid, {})
+                short_name = r_meta.get("short_name", rid)
+                long_name = r_meta.get("long_name", f"Route {short_name}")
+                headsign = meta.get("headsign", "")
+
+                veh_id = f"BUS-{bid[-3:] if len(bid) >= 3 else bid}"
+                live_list.append({
+                    "vehicle_id": veh_id,
+                    "block_id": bid,
+                    "trip_id": tid,
+                    "route_id": short_name,
+                    "route_name": long_name,
+                    "bus_name": f"Bus {short_name} ({headsign or long_name})",
+                    "headsign": headsign,
+                    "route_color": r_meta.get("color", "#4338CA"),
+                    "lat": float(pos["lat"]),
+                    "lon": float(pos["lon"]),
+                    "speed_kmh": float(pos["speed_kmh"]),
+                    "current_stop_id": pos.get("current_stop_id"),
+                    "next_stop_id": pos.get("next_stop_id"),
+                    "progress": round(pos.get("progress", 0.0), 2),
+                    "delay_sec": 0
+                })
+
+        return live_list
 
     @staticmethod
     def hms_to_sec(hms_str: str) -> int:
@@ -277,9 +361,6 @@ class GTFSDataManager:
         return [[b_lat, b_lon], [a_lat, a_lon]]
 
     def get_vehicle_position_along_trip(self, trip_id: str, time_sec: int) -> Optional[Dict[str, Any]]:
-        """
-        Calculates the exact GPS road coordinate of a vehicle on a specific GTFS trip at a given second of the day.
-        """
         st_list = self.trip_stop_times.get(trip_id)
         if not st_list or len(st_list) < 2:
             return None

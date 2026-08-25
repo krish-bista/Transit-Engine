@@ -166,21 +166,30 @@ def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
             dep["delay_sec"] = live_delays[tid].get("delay_sec", 0)
     return {"stop_id": stop_id, "departures": departures}
 
-def find_live_vehicle_for_route(bus_number: str, board_stop: dict) -> Optional[dict]:
+def find_live_vehicle_for_trip(trip_id: Optional[str], bus_number: str, board_stop: dict) -> Optional[dict]:
     b_num = str(bus_number).strip().upper()
     best_v = None
     min_d = float("inf")
 
     for v in live_vehicles:
+        if trip_id and v.get("trip_id") == trip_id:
+            best_v = dict(v)
+            d_lat = (v["lat"] - board_stop["lat"]) * 111320
+            d_lon = (v["lon"] - board_stop["lon"]) * 111320 * math.cos(math.radians(board_stop["lat"]))
+            dist = int(math.sqrt(d_lat**2 + d_lon**2))
+            best_v["distance_to_stop_m"] = dist
+            best_v["eta_minutes"] = max(1, int(dist / 9.5 / 60))
+            return best_v
+
         v_rid = str(v.get("route_id", "")).strip().upper()
         if v_rid == b_num:
             d_lat = (v["lat"] - board_stop["lat"]) * 111320
             d_lon = (v["lon"] - board_stop["lon"]) * 111320 * math.cos(math.radians(board_stop["lat"]))
-            dist = math.sqrt(d_lat**2 + d_lon**2)
+            dist = int(math.sqrt(d_lat**2 + d_lon**2))
             if dist < min_d:
                 min_d = dist
                 best_v = dict(v)
-                best_v["distance_to_stop_m"] = int(dist)
+                best_v["distance_to_stop_m"] = dist
                 best_v["eta_minutes"] = max(1, int(dist / 9.5 / 60))
 
     return best_v
@@ -270,7 +279,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
 
             route_color = route_meta.get("color", "#4338CA")
             route_text_color = route_meta.get("text_color", "#FFFFFF")
-            live_vehicle = find_live_vehicle_for_route(bus_number, b_stop)
+            live_vehicle = find_live_vehicle_for_trip(leg.get("trip_id"), bus_number, b_stop)
 
             # Slices true road coordinates from shapes.txt
             leg_geometry = data_manager.get_shape_segment(raw_rid, b_stop["lat"], b_stop["lon"], a_stop["lat"], a_stop["lon"])
@@ -418,80 +427,26 @@ def plan_route(req: RoutePlanRequest):
         "arrival_time": options[0]["arrival_time"]
     }
 
-# Schedule-Exact Block Vehicle Telemetry Worker
+# Schedule-Exact Active Vehicle Telemetry Worker (Strictly Real Buses)
 async def telemetry_background_worker():
     stops = data_manager.stops
     if not stops:
         return
 
-    # Select primary active transit blocks representing city fleet
-    all_blocks = list(data_manager.block_trips.keys())
-
     while True:
         try:
+            if TBAY_TZ:
+                now = datetime.now(TBAY_TZ)
+            else:
+                now = datetime.utcnow()
             current_sec = get_thunder_bay_time()
+            date_str = now.strftime("%Y%m%d")
+            dow = now.weekday()
 
-            updated_vehicles = []
-            seen_routes = set()
-
-            for bid in all_blocks:
-                tids = data_manager.block_trips.get(bid, [])
-                if not tids:
-                    continue
-
-                # Find currently active trip in this block at this second
-                active_tid = None
-                for tid in tids:
-                    span = data_manager.trip_spans.get(tid, {})
-                    if span.get("start_sec", 0) <= current_sec <= span.get("end_sec", 0):
-                        active_tid = tid
-                        break
-
-                # If between trips, find next upcoming trip
-                if not active_tid:
-                    for tid in tids:
-                        span = data_manager.trip_spans.get(tid, {})
-                        if span.get("start_sec", 0) >= current_sec:
-                            active_tid = tid
-                            break
-                    if not active_tid:
-                        active_tid = tids[-1]
-
-                if active_tid:
-                    t_meta = data_manager.trips.get(active_tid, {})
-                    rid = t_meta.get("route_id", "")
-                    r_meta = data_manager.routes.get(rid, {})
-                    short_name = r_meta.get("short_name", rid)
-                    headsign = t_meta.get("headsign", "")
-
-                    pos = data_manager.get_vehicle_position_along_trip(active_tid, current_sec)
-                    if pos and pos.get("lat") and pos.get("lon"):
-                        # Ensure one primary vehicle per route line for clean display
-                        v_key = f"{short_name}_{headsign[:10]}"
-                        if v_key in seen_routes and len(updated_vehicles) > 18:
-                            continue
-                        seen_routes.add(v_key)
-
-                        updated_vehicles.append({
-                            "vehicle_id": f"BUS-{bid[-3:] if len(bid) >= 3 else bid}",
-                            "block_id": bid,
-                            "trip_id": active_tid,
-                            "route_id": short_name,
-                            "route_name": r_meta.get("long_name", f"Route {short_name}"),
-                            "bus_name": f"Bus {short_name} ({headsign or r_meta.get('long_name', '')})",
-                            "route_color": r_meta.get("color", "#4338CA"),
-                            "lat": float(pos["lat"]),
-                            "lon": float(pos["lon"]),
-                            "speed_kmh": float(pos["speed_kmh"]),
-                            "delay_sec": 0
-                        })
-
-                        if len(updated_vehicles) >= 20:
-                            break
+            active_fleet = data_manager.get_live_active_vehicles(current_sec, date_str, dow)
 
             global live_vehicles
-            if updated_vehicles:
-                live_vehicles = updated_vehicles
+            live_vehicles = active_fleet
 
             if ws_manager.active_connections:
                 payload = {

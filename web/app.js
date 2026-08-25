@@ -808,15 +808,22 @@ function startJourney(optionIndex) {
 
         </div>
 
-        <!-- Live Vehicle Radar Action (Click to focus on bus) -->
+        <!-- Live Vehicle Radar Action (Click to focus & track on map) -->
         ${liveVeh ? `
           <button onclick="trackBus('${liveVeh.vehicle_id}', '${leg.bus_number}', ${leg.board_stop.lat}, ${leg.board_stop.lon}, '${leg.bus_name}', true)"
-                  class="w-full py-2.5 px-3.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 font-bold text-xs rounded-xl shadow-sm flex items-center justify-between transition btn-tactile">
-            <span class="flex items-center space-x-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              <span>Live Bus GPS (${liveVeh.distance_m}m away)</span>
+                  class="w-full py-3 px-3.5 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 text-indigo-950 font-bold text-xs rounded-2xl shadow-sm flex items-center justify-between transition btn-tactile">
+            <span class="flex items-center space-x-2.5">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span class="text-stone-900 font-black">Track Bus ${leg.bus_number} Live</span>
+              <span class="text-indigo-700 font-medium text-[11px]">(${liveVeh.distance_to_stop_m || liveVeh.distance_m || 400}m away • ~${liveVeh.eta_minutes || 2}m)</span>
             </span>
-            <span class="text-indigo-600 font-extrabold">Track Bus Live →</span>
+            <span class="px-2.5 py-1 rounded-xl bg-indigo-600 text-white font-extrabold text-[11px] shadow-sm flex items-center space-x-1">
+              <span>Track Bus</span>
+              <span>→</span>
+            </span>
           </button>
         ` : ''}
 
