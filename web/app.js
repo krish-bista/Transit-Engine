@@ -165,22 +165,39 @@ function showUserPositionMarker(lat, lon, stopName) {
   map.flyTo([lat, lon], 14, { duration: 1.0 });
 }
 
-// Mobile Bottom-Sheet Controller & 1:1 Real-Time Drag Physics
-let currentMobileSheetState = "peek"; // "peek", "half", "full", "minimized"
+// Native-Grade GPU Sheet Transform Controller (120fps Hardware Accelerated)
+let sheetState = "peek"; // "full", "half", "peek", "minimized"
+let currentSheetY = 0; // Current translateY in pixels
 
-function setMobileSheetState(state) {
-  currentMobileSheetState = state;
+function getSheetBreakpoints() {
+  const vh = window.innerHeight;
+  const sheetHeight = vh * 0.92;
+  return {
+    full: 0,
+    half: Math.round(sheetHeight * 0.44),      // Shows search & quick route cards, leaves top map visible
+    peek: Math.round(sheetHeight - 215),      // Shows inputs & header, leaves ~75% map visible
+    minimized: Math.round(sheetHeight - 65),  // Uncovers 100% of the map (only top handle/logo peek)
+    maxDrag: Math.round(sheetHeight - 50)
+  };
+}
+
+function setMobileSheetState(state, animated = true) {
+  if (window.innerWidth >= 640) return;
+  sheetState = state;
   const sheet = document.getElementById("craft-drawer-card");
   const chevron = document.getElementById("mobile-chevron-icon");
   if (!sheet) return;
 
-  // Clear any temporary inline drag heights so CSS class rules take over cleanly
-  sheet.style.height = "";
-  sheet.style.maxHeight = "";
-  sheet.style.transition = "height 0.32s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1)";
+  const bp = getSheetBreakpoints();
+  const targetY = bp[state] !== undefined ? bp[state] : bp.half;
+  currentSheetY = targetY;
 
-  sheet.classList.remove("sheet-peek", "sheet-half", "sheet-full", "sheet-minimized");
-  sheet.classList.add(`sheet-${state}`);
+  if (animated) {
+    sheet.style.transition = "transform 0.35s cubic-bezier(0.18, 0.9, 0.25, 1)";
+  } else {
+    sheet.style.transition = "none";
+  }
+  sheet.style.transform = `translate3d(0, ${targetY}px, 0)`;
 
   if (chevron) {
     if (state === "full") {
@@ -193,9 +210,9 @@ function setMobileSheetState(state) {
 }
 
 function toggleMobileSheet() {
-  if (currentMobileSheetState === "peek" || currentMobileSheetState === "minimized") {
+  if (sheetState === "peek" || sheetState === "minimized") {
     setMobileSheetState("half");
-  } else if (currentMobileSheetState === "half") {
+  } else if (sheetState === "half") {
     setMobileSheetState("full");
   } else {
     setMobileSheetState("peek");
@@ -203,97 +220,149 @@ function toggleMobileSheet() {
 }
 
 function initMobileSheetGestures() {
-  const dragArea = document.getElementById("mobile-sheet-drag-area") || document.getElementById("mobile-sheet-handle");
-  const header = document.querySelector(".craft-drawer-header");
   const sheet = document.getElementById("craft-drawer-card");
+  const scrollContainer = document.querySelector(".drawer-scroll-container");
   if (!sheet) return;
 
-  let isDragging = false;
-  let startY = 0;
-  let startHeight = 0;
-  let lastY = 0;
+  let isTouching = false;
+  let isDraggingSheet = false;
+  let startTouchY = 0;
+  let startTouchX = 0;
+  let startSheetY = 0;
+  let lastTouchY = 0;
   let lastTime = 0;
   let velocityY = 0;
 
-  function onTouchStart(e) {
-    if (window.innerWidth >= 640) return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('input')) {
-      return;
-    }
-    const touch = e.touches[0];
-    startY = touch.clientY;
-    lastY = startY;
-    lastTime = Date.now();
-    velocityY = 0;
-    startHeight = sheet.getBoundingClientRect().height;
-    isDragging = true;
-    sheet.style.transition = 'none';
+  // Initialize initial position on mobile
+  if (window.innerWidth < 640) {
+    setMobileSheetState("peek", false);
   }
 
-  function onTouchMove(e) {
-    if (!isDragging || window.innerWidth >= 640) return;
-    const touch = e.touches[0];
-    const currentY = touch.clientY;
-    const now = Date.now();
-
-    const deltaY = startY - currentY; // Upward drag = positive height increase
-    const dt = Math.max(1, now - lastTime);
-    velocityY = (lastY - currentY) / dt;
-
-    lastY = currentY;
-    lastTime = now;
-
-    const minH = 100;
-    const maxH = window.innerHeight * 0.92;
-    const newHeight = Math.max(minH, Math.min(maxH, startHeight + deltaY));
-
-    sheet.style.height = `${newHeight}px`;
-    sheet.style.maxHeight = `${newHeight}px`;
-
-    if (e.cancelable) e.preventDefault();
-  }
-
-  function onTouchEnd() {
-    if (!isDragging || window.innerWidth >= 640) return;
-    isDragging = false;
-
-    sheet.style.transition = 'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
-
-    const currentHeight = sheet.getBoundingClientRect().height;
-    const vh = window.innerHeight;
-
-    const peekH = 230;
-    const halfH = vh * 0.56;
-    const fullH = vh * 0.90;
-
-    // Fast fling momentum
-    if (velocityY > 0.30) {
-      if (currentHeight < halfH) setMobileSheetState("half");
-      else setMobileSheetState("full");
-    } else if (velocityY < -0.30) {
-      if (currentHeight > halfH) setMobileSheetState("half");
-      else setMobileSheetState("peek");
+  window.addEventListener("resize", () => {
+    if (window.innerWidth < 640) {
+      setMobileSheetState(sheetState, false);
     } else {
-      // Snap to closest anchor point
-      const dPeek = Math.abs(currentHeight - peekH);
-      const dHalf = Math.abs(currentHeight - halfH);
-      const dFull = Math.abs(currentHeight - fullH);
-
-      const minD = Math.min(dPeek, dHalf, dFull);
-      if (minD === dPeek) setMobileSheetState("peek");
-      else if (minD === dHalf) setMobileSheetState("half");
-      else setMobileSheetState("full");
-    }
-  }
-
-  [dragArea, header].forEach(el => {
-    if (el) {
-      el.addEventListener("touchstart", onTouchStart, { passive: false });
-      el.addEventListener("touchmove", onTouchMove, { passive: false });
-      el.addEventListener("touchend", onTouchEnd, { passive: true });
-      el.addEventListener("touchcancel", onTouchEnd, { passive: true });
+      sheet.style.transform = "";
+      sheet.style.transition = "";
     }
   });
+
+  sheet.addEventListener("touchstart", (e) => {
+    if (window.innerWidth >= 640) return;
+    const touch = e.touches[0];
+    startTouchY = touch.clientY;
+    startTouchX = touch.clientX;
+    lastTouchY = startTouchY;
+    lastTime = Date.now();
+    velocityY = 0;
+    startSheetY = currentSheetY;
+    isTouching = true;
+    isDraggingSheet = false;
+
+    // Direct drag when touching header, handle, or tabs
+    const isTopHeader = e.target.closest("#mobile-sheet-drag-area") || 
+                        e.target.closest(".craft-drawer-header") ||
+                        e.target.closest(".mobile-drag-handle") ||
+                        e.target.closest("#tab-planner-btn") ||
+                        e.target.closest("#tab-fleet-btn") ||
+                        e.target.closest("#tab-places-btn");
+
+    if (isTopHeader && !e.target.closest("input") && !e.target.closest("button:not([id*='tab'])")) {
+      isDraggingSheet = true;
+      sheet.style.transition = "none";
+    }
+  }, { passive: true });
+
+  sheet.addEventListener("touchmove", (e) => {
+    if (!isTouching || window.innerWidth >= 640) return;
+    const touch = e.touches[0];
+    const currentY = touch.clientY;
+    const currentX = touch.clientX;
+    const deltaY = currentY - startTouchY;
+    const deltaX = currentX - startTouchX;
+    const now = Date.now();
+
+    const dt = Math.max(1, now - lastTime);
+    velocityY = (currentY - lastTouchY) / dt;
+    lastTouchY = currentY;
+    lastTime = now;
+
+    // Detect vertical drag gesture
+    if (!isDraggingSheet) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
+        if (sheetState !== "full") {
+          // If sheet is half or peek, dragging anywhere moves the sheet
+          isDraggingSheet = true;
+          sheet.style.transition = "none";
+        } else if (scrollContainer && scrollContainer.scrollTop <= 0 && deltaY > 0) {
+          // If at full height and at top, pulling down moves sheet down to uncover map
+          isDraggingSheet = true;
+          sheet.style.transition = "none";
+        }
+      }
+    }
+
+    if (isDraggingSheet) {
+      const bp = getSheetBreakpoints();
+      let newY = startSheetY + deltaY;
+
+      // Elastic resistance past boundaries
+      if (newY < 0) {
+        newY = newY * 0.25;
+      } else if (newY > bp.maxDrag) {
+        newY = bp.maxDrag + (newY - bp.maxDrag) * 0.25;
+      }
+
+      currentSheetY = newY;
+      sheet.style.transform = `translate3d(0, ${newY}px, 0)`;
+
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+
+  function handleTouchEnd() {
+    if (!isTouching || window.innerWidth >= 640) return;
+    isTouching = false;
+
+    if (!isDraggingSheet) return;
+    isDraggingSheet = false;
+
+    const bp = getSheetBreakpoints();
+
+    // Fast flick / fling momentum
+    if (velocityY < -0.35) {
+      // Swiped UP fast
+      if (currentSheetY > bp.half + 30) {
+        setMobileSheetState("half");
+      } else {
+        setMobileSheetState("full");
+      }
+    } else if (velocityY > 0.35) {
+      // Swiped DOWN fast
+      if (currentSheetY < bp.half - 30) {
+        setMobileSheetState("half");
+      } else {
+        setMobileSheetState("peek");
+      }
+    } else {
+      // Snap to closest anchor breakpoint
+      const dFull = Math.abs(currentSheetY - bp.full);
+      const dHalf = Math.abs(currentSheetY - bp.half);
+      const dPeek = Math.abs(currentSheetY - bp.peek);
+
+      const minD = Math.min(dFull, dHalf, dPeek);
+      if (minD === dFull) {
+        setMobileSheetState("full");
+      } else if (minD === dHalf) {
+        setMobileSheetState("half");
+      } else {
+        setMobileSheetState("peek");
+      }
+    }
+  }
+
+  sheet.addEventListener("touchend", handleTouchEnd, { passive: true });
+  sheet.addEventListener("touchcancel", handleTouchEnd, { passive: true });
 }
 
 // User-Triggered GPS Button Handler
@@ -459,7 +528,7 @@ function setupAutocomplete(inputId, resultsId, onSelect) {
   let debounceTimer = null;
 
   input.addEventListener("focus", () => {
-    if (window.innerWidth < 640 && currentMobileSheetState === "peek") {
+    if (window.innerWidth < 640 && sheetState === "peek") {
       setMobileSheetState("half");
     }
   });
@@ -473,7 +542,7 @@ function setupAutocomplete(inputId, resultsId, onSelect) {
         return;
       }
 
-      if (window.innerWidth < 640 && currentMobileSheetState === "peek") {
+      if (window.innerWidth < 640 && sheetState === "peek") {
         setMobileSheetState("half");
       }
 
