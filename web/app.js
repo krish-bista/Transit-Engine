@@ -1005,6 +1005,14 @@ function updateLiveVehicles(vehicles) {
       if (window.lucide) lucide.createIcons();
     } else {
       busMarkers[vid].setLatLng([v.lat, v.lon]);
+      const el = busMarkers[vid].getElement();
+      if (el) {
+        const pill = el.querySelector(".transit-bus-pill");
+        if (pill) {
+          if (isTracked) pill.classList.add("tracked");
+          else pill.classList.remove("tracked");
+        }
+      }
     }
   });
 

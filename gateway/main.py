@@ -409,12 +409,18 @@ async def telemetry_background_worker():
         meta = THUNDER_BAY_ROUTES.get(rid, {})
         color = meta.get("color", "#4338CA")
         
-        # Get true road shape points
-        pts = data_manager.route_shapes.get(rid, [])
-        if not pts:
-            pts = [[48.416 + (i*0.005), -89.236 + (i*0.005)], [48.426, -89.270]]
+        # Get true road shape coordinates from data_manager.shapes
+        sids = data_manager.route_shapes.get(rid, [])
+        pts = []
+        for sid in sids:
+            cand = data_manager.shapes.get(sid, [])
+            if len(cand) > len(pts):
+                pts = cand
 
-        start_pt_idx = (i * 20) % len(pts)
+        if not pts or len(pts) < 2:
+            pts = [[48.406 + (i * 0.005), -89.260 + (i * 0.005)], [48.426, -89.270]]
+
+        start_pt_idx = (i * 15) % max(1, len(pts))
         init_pt = pts[start_pt_idx]
 
         vehicles.append({
@@ -425,9 +431,9 @@ async def telemetry_background_worker():
             "route_color": color,
             "shape_pts": pts,
             "current_pt_idx": start_pt_idx,
-            "direction": 1,
-            "lat": init_pt[0],
-            "lon": init_pt[1],
+            "direction": 1 if (i % 2 == 0) else -1,
+            "lat": float(init_pt[0]),
+            "lon": float(init_pt[1]),
             "speed_kmh": 34.0 + (i % 8),
             "delay_sec": (i * 20) % 120,
             "heading": 0
@@ -447,8 +453,8 @@ async def telemetry_background_worker():
                         v["current_pt_idx"] = 0
 
                     next_pt = pts[v["current_pt_idx"]]
-                    v["lat"] = next_pt[0]
-                    v["lon"] = next_pt[1]
+                    v["lat"] = float(next_pt[0])
+                    v["lon"] = float(next_pt[1])
 
             global live_vehicles
             live_vehicles = [
@@ -458,10 +464,10 @@ async def telemetry_background_worker():
                     "route_name": v["route_name"],
                     "bus_name": v["bus_name"],
                     "route_color": v["route_color"],
-                    "lat": v["lat"],
-                    "lon": v["lon"],
-                    "speed_kmh": v["speed_kmh"],
-                    "delay_sec": v["delay_sec"]
+                    "lat": float(v["lat"]),
+                    "lon": float(v["lon"]),
+                    "speed_kmh": float(v["speed_kmh"]),
+                    "delay_sec": int(v["delay_sec"])
                 }
                 for v in vehicles
             ]
