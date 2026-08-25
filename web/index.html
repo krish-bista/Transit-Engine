@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>CityTransit • Thunder Bay</title>
   
   <!-- Tailwind CSS CDN -->
@@ -16,23 +16,28 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css?v=5.1">
+  <link rel="stylesheet" href="styles.css?v=5.2">
 </head>
 <body class="bg-stone-100 text-stone-900 flex h-screen w-screen overflow-hidden antialiased">
 
   <!-- Full-Bleed Map Surface -->
-  <div id="map" class="absolute inset-0 z-0"></div>
+  <div id="map"></div>
 
-  <!-- Floating Craft Drawer (Left) -->
-  <div class="relative z-10 w-full sm:w-[460px] h-full flex flex-col p-4 sm:p-5 pointer-events-auto">
+  <!-- Responsive Craft Drawer (Floating Left on Desktop, Bottom-Sheet on Mobile) -->
+  <div class="craft-drawer-wrapper">
     
-    <!-- Elevated White Card -->
-    <div class="craft-drawer rounded-3xl flex flex-col h-full overflow-hidden shadow-2xl">
+    <!-- Elevated White Glass Sheet -->
+    <div id="craft-drawer-card" class="craft-drawer sheet-peek sm:sheet-full shadow-2xl">
       
+      <!-- Mobile Tactile Drag Handle (Tappable / Swipable on mobile) -->
+      <div id="mobile-sheet-handle" onclick="toggleMobileSheet()" class="w-full flex sm:hidden flex-col items-center pt-2.5 pb-1 cursor-pointer select-none">
+        <div class="mobile-drag-handle"></div>
+      </div>
+
       <!-- App Header & Navigation Bar -->
-      <div class="px-6 pt-5 pb-3.5 border-b border-stone-200/70 bg-white/60 flex items-center justify-between shrink-0">
+      <div class="px-5 sm:px-6 pt-2 sm:pt-5 pb-3 sm:pb-3.5 border-b border-stone-200/70 bg-white/60 flex items-center justify-between shrink-0">
         <div class="flex items-center space-x-3">
-          <div class="w-8 h-8 rounded-xl bg-stone-900 flex items-center justify-center text-white shadow-sm">
+          <div class="w-8 h-8 rounded-xl bg-stone-900 flex items-center justify-center text-white shadow-sm shrink-0">
             <i data-lucide="compass" class="w-4 h-4 text-stone-100"></i>
           </div>
           <div>
@@ -44,26 +49,32 @@
           </div>
         </div>
 
-        <div class="flex items-center space-x-1.5 bg-stone-100/90 border border-stone-200/80 px-2.5 py-1 rounded-full text-[11px] font-semibold text-stone-600">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="telemetry-status-text">14 buses moving</span>
+        <div class="flex items-center space-x-2">
+          <div class="flex items-center space-x-1.5 bg-stone-100/90 border border-stone-200/80 px-2.5 py-1 rounded-full text-[11px] font-semibold text-stone-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="telemetry-status-text">14 buses moving</span>
+          </div>
+          <!-- Mobile Expand/Minimize Chevron -->
+          <button onclick="toggleMobileSheet()" class="sm:hidden p-1.5 rounded-full text-stone-400 hover:text-stone-800 transition">
+            <i id="mobile-chevron-icon" data-lucide="chevron-up" class="w-4 h-4"></i>
+          </button>
         </div>
       </div>
 
       <!-- Segmented Tab Switcher -->
-      <div class="px-6 py-2.5 bg-stone-50/60 border-b border-stone-200/50 flex space-x-1.5 shrink-0">
+      <div class="px-4 sm:px-6 py-2 sm:py-2.5 bg-stone-50/60 border-b border-stone-200/50 flex space-x-1.5 shrink-0">
         <button id="tab-planner-btn" onclick="switchTab('planner')" 
-                class="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-stone-900 shadow-sm border border-stone-200/80">
+                class="flex-1 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-stone-900 shadow-sm border border-stone-200/80">
           <i data-lucide="navigation" class="w-3.5 h-3.5 text-stone-800"></i>
           <span>Directions</span>
         </button>
         <button id="tab-fleet-btn" onclick="switchTab('fleet')" 
-                class="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 text-stone-500 hover:text-stone-900 hover:bg-white/70">
+                class="flex-1 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 text-stone-500 hover:text-stone-900 hover:bg-white/70">
           <i data-lucide="bus" class="w-3.5 h-3.5"></i>
           <span>Live Buses</span>
         </button>
         <button id="tab-places-btn" onclick="switchTab('places')" 
-                class="flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 text-stone-500 hover:text-stone-900 hover:bg-white/70">
+                class="flex-1 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1.5 text-stone-500 hover:text-stone-900 hover:bg-white/70">
           <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
           <span>Places</span>
         </button>
@@ -73,10 +84,10 @@
       <div class="drawer-scroll-container p-4 sm:p-5">
 
         <!-- Tab 1: Directions Planner -->
-        <div id="tab-planner" class="space-y-4">
+        <div id="tab-planner" class="space-y-3.5 sm:space-y-4">
           
           <!-- Unified Origin/Destination Card -->
-          <div class="bg-stone-50/90 border border-stone-200/80 rounded-2xl p-3.5 space-y-2 shadow-sm">
+          <div class="bg-stone-50/90 border border-stone-200/80 rounded-2xl p-3 sm:p-3.5 space-y-2 shadow-sm">
             
             <!-- Origin Row -->
             <div class="relative flex items-center">
@@ -85,8 +96,8 @@
               </div>
               <div class="flex-1 min-w-0 ml-2">
                 <input type="text" id="source-input" value="" placeholder="📍 Detecting your location..." autocomplete="off"
-                       class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
-                <div id="source-results" class="absolute left-7 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto hidden"></div>
+                       class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
+                <div id="source-results" class="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto hidden"></div>
               </div>
               <button onclick="useCurrentLocation()" title="Use my current GPS position" class="ml-2 p-2 rounded-xl text-stone-400 hover:text-indigo-600 hover:bg-indigo-50 transition shrink-0">
                 <i data-lucide="crosshair" class="w-4 h-4"></i>
@@ -97,8 +108,8 @@
             <div class="flex items-center pl-2.5 -my-1">
               <div class="w-0.5 h-3.5 bg-stone-300 ml-[3px]"></div>
               <div class="flex-1 border-t border-dashed border-stone-200 mx-2"></div>
-              <button onclick="swapStops()" title="Swap stops" class="p-1 rounded-full bg-white text-stone-400 hover:text-stone-800 border border-stone-200 shadow-sm transition">
-                <i data-lucide="arrow-up-down" class="w-3 h-3"></i>
+              <button onclick="swapStops()" title="Swap stops" class="p-1.5 rounded-full bg-white text-stone-400 hover:text-stone-800 border border-stone-200 shadow-sm transition btn-tactile">
+                <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
               </button>
             </div>
 
@@ -110,15 +121,15 @@
                 </div>
                 <div class="flex-1 min-w-0 ml-2">
                   <input type="text" id="target-input" value="" placeholder="Choose destination or type stop..." autocomplete="off"
-                         class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
-                  <div id="target-results" class="absolute left-7 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-30 max-h-48 overflow-y-auto hidden"></div>
+                         class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
+                  <div id="target-results" class="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto hidden"></div>
                 </div>
               </div>
 
               <!-- Quick Destination Dropdown Selector -->
               <div class="pl-7">
                 <select id="destination-quick-select" onchange="onQuickSelectDestination(this.value)" 
-                        class="w-full bg-stone-100 hover:bg-stone-200/80 border border-stone-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-stone-700 focus:outline-none focus:border-stone-900 transition cursor-pointer">
+                        class="w-full bg-stone-100 hover:bg-stone-200/80 border border-stone-200 rounded-xl px-2.5 py-2 sm:py-1.5 text-xs font-semibold text-stone-700 focus:outline-none focus:border-stone-900 transition cursor-pointer">
                   <option value="" selected disabled>✨ Quick Pick Destination...</option>
                   <option value="184">🏥 Thunder Bay Regional Hospital</option>
                   <option value="181">🎓 Lakehead University</option>
@@ -129,7 +140,9 @@
                   <option value="180">✈️ Thunder Bay International Airport</option>
                 </select>
               </div>
-            </div>            <!-- Departure Time Segmented Control -->
+            </div>
+
+            <!-- Departure Time Segmented Control -->
             <div class="pt-2 border-t border-stone-200/60 space-y-2">
               <div class="flex p-1 bg-stone-200/60 rounded-xl">
                 <button type="button" id="time-mode-now-btn" onclick="setTimeMode('now')" 
@@ -187,7 +200,7 @@
           <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">Quick Destinations</h3>
           
           <div onclick="setQuickDestination('Thunder Bay Regional Hospital', 184)" 
-               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
               <span class="p-2 rounded-xl bg-rose-50 text-rose-600 text-base">🏥</span>
               <div>
@@ -198,10 +211,22 @@
             <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400"></i>
           </div>
 
-          <div onclick="setQuickDestination('Confederation College', 190)" 
-               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
+          <div onclick="setQuickDestination('Lakehead University', 181)" 
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600 text-base">🎓</span>
+              <span class="p-2 rounded-xl bg-amber-50 text-amber-600 text-base">🎓</span>
+              <div>
+                <h4 class="text-sm font-bold text-stone-900">Lakehead University</h4>
+                <p class="text-xs text-stone-500">Agora & University Centre</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400"></i>
+          </div>
+
+          <div onclick="setQuickDestination('Confederation College', 190)" 
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
+            <div class="flex items-center space-x-3">
+              <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600 text-base">🏫</span>
               <div>
                 <h4 class="text-sm font-bold text-stone-900">Confederation College</h4>
                 <p class="text-xs text-stone-500">Main Campus Terminal</p>
@@ -211,7 +236,7 @@
           </div>
 
           <div onclick="setQuickDestination('Waterfront Terminal', 0)" 
-               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
               <span class="p-2 rounded-xl bg-sky-50 text-sky-600 text-base">⚓</span>
               <div>
@@ -223,7 +248,7 @@
           </div>
 
           <div onclick="setQuickDestination('City Hall Terminal', 200)" 
-               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm">
+               class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
               <span class="p-2 rounded-xl bg-amber-50 text-amber-600 text-base">🏛</span>
               <div>
@@ -240,7 +265,7 @@
     </div>
   </div>
 
-  <!-- Floating Map Creator Watermark Badge -->
+  <!-- Floating Map Creator Watermark Badge (Desktop & Tablet) -->
   <div class="absolute bottom-6 left-[490px] z-[390] hidden lg:flex items-center space-x-2 bg-white/95 backdrop-blur-md border border-stone-200/80 px-3.5 py-1.5 rounded-full shadow-md pointer-events-auto">
     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
     <span class="text-xs font-bold text-stone-800">Thunder Bay Transit</span>
@@ -248,9 +273,9 @@
     <span class="text-xs text-stone-500">Built by <strong class="text-stone-900 font-bold">Krish Bista</strong></span>
   </div>
 
-  <!-- Live Bus Tracking HUD Floating Card (Top Right of Map) -->
-  <div id="tracking-hud" class="absolute top-5 right-5 z-[400] bg-white/95 border border-stone-200/90 backdrop-blur-2xl p-4 rounded-3xl shadow-2xl max-w-xs hidden">
-    <div class="flex items-center justify-between border-b border-stone-100 pb-2.5 mb-2.5">
+  <!-- Live Bus Tracking HUD Floating Card (Top Center on Mobile, Top Right on Desktop) -->
+  <div id="tracking-hud" class="absolute top-4 sm:top-5 inset-x-4 sm:inset-x-auto sm:right-5 z-[400] bg-white/95 border border-stone-200/90 backdrop-blur-2xl p-3.5 sm:p-4 rounded-3xl shadow-2xl max-w-sm sm:max-w-xs hidden">
+    <div class="flex items-center justify-between border-b border-stone-100 pb-2 mb-2">
       <div class="flex items-center space-x-2">
         <span id="hud-bus-pill" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-stone-900 text-white shadow-sm">BUS 8</span>
         <div>
@@ -258,27 +283,27 @@
           <span id="hud-bus-id" class="text-[10px] text-stone-500">Approaching your stop</span>
         </div>
       </div>
-      <button onclick="stopTrackingBus()" class="p-1 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition">
+      <button onclick="stopTrackingBus()" class="p-1.5 rounded-full text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
     </div>
 
     <div class="grid grid-cols-3 gap-2 text-center">
-      <div class="bg-stone-50 border border-stone-200/60 p-2 rounded-2xl">
+      <div class="bg-stone-50 border border-stone-200/60 p-1.5 sm:p-2 rounded-2xl">
         <span class="text-[10px] font-medium text-stone-500 block">Arriving</span>
         <span id="hud-eta" class="text-sm font-black text-indigo-600">~3 min</span>
       </div>
-      <div class="bg-stone-50 border border-stone-200/60 p-2 rounded-2xl">
+      <div class="bg-stone-50 border border-stone-200/60 p-1.5 sm:p-2 rounded-2xl">
         <span class="text-[10px] font-medium text-stone-500 block">Distance</span>
         <span id="hud-dist" class="text-sm font-black text-stone-800">640m</span>
       </div>
-      <div class="bg-stone-50 border border-stone-200/60 p-2 rounded-2xl">
+      <div class="bg-stone-50 border border-stone-200/60 p-1.5 sm:p-2 rounded-2xl">
         <span class="text-[10px] font-medium text-stone-500 block">Status</span>
         <span id="hud-status" class="text-[11px] font-bold text-emerald-600">On Time</span>
       </div>
     </div>
 
-    <div class="mt-2.5 pt-2 border-t border-stone-100 text-[11px] text-stone-500 flex items-center justify-between">
+    <div class="mt-2 pt-2 border-t border-stone-100 text-[11px] text-stone-500 flex items-center justify-between">
       <span>Speed: <strong id="hud-speed" class="text-stone-800">35 km/h</strong></span>
       <span class="text-emerald-600 font-semibold flex items-center space-x-1">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
@@ -287,19 +312,19 @@
     </div>
   </div>
 
-  <!-- Floating Map Control Buttons (Bottom Right) -->
-  <div class="absolute bottom-6 right-6 z-[390] flex flex-col space-y-2">
-    <button onclick="centerMapOnTransit()" title="Center Map" class="p-3 bg-white hover:bg-stone-50 text-stone-700 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
+  <!-- Floating Map Control Buttons (Top-Right on Mobile, Bottom-Right on Desktop) -->
+  <div class="absolute top-20 sm:top-auto sm:bottom-6 right-4 sm:right-6 z-[390] flex flex-col space-y-2">
+    <button onclick="centerMapOnTransit()" title="Center on My Location" class="p-3 bg-white/95 hover:bg-stone-50 text-stone-700 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
       <i data-lucide="crosshair" class="w-4 h-4"></i>
     </button>
-    <button onclick="toggleAllStops()" id="toggle-stops-btn" title="Toggle Bus Stops" class="p-3 bg-white hover:bg-stone-50 text-indigo-600 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
+    <button onclick="toggleAllStops()" id="toggle-stops-btn" title="Toggle Bus Stops" class="p-3 bg-white/95 hover:bg-stone-50 text-indigo-600 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
       <i data-lucide="map-pin" class="w-4 h-4"></i>
     </button>
   </div>
 
   <!-- Departures Modal / Dialog -->
-  <div id="departures-modal" class="fixed inset-0 z-50 bg-stone-900/30 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="bg-white border border-stone-200 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+  <div id="departures-modal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white border border-stone-200 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-stone-100 pb-3">
         <div>
           <h3 id="modal-stop-name" class="text-base font-extrabold text-stone-900">Stop Name</h3>
@@ -319,7 +344,7 @@
       </div>
 
       <div class="flex justify-end pt-2">
-        <button onclick="closeDeparturesModal()" class="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-800 rounded-xl transition">
+        <button onclick="closeDeparturesModal()" class="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-800 rounded-xl transition btn-tactile">
           Close
         </button>
       </div>
@@ -327,6 +352,6 @@
   </div>
 
   <!-- App Logic -->
-  <script src="app.js?v=5.1"></script>
+  <script src="app.js?v=5.2"></script>
 </body>
 </html>

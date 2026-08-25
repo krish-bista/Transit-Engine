@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     lucide.createIcons();
   }
   initMap();
+  initMobileSheetGestures();
 
   await loadStops();
   await loadRoutes();
@@ -151,6 +152,70 @@ function showUserPositionMarker(lat, lon, stopName) {
   userMarker = L.marker([lat, lon], { icon }).addTo(map);
   userMarker.bindPopup(`<div class="p-1 font-bold text-xs">📍 Your Location (Near ${stopName})</div>`);
   map.flyTo([lat, lon], 14, { duration: 1.0 });
+}
+
+// Mobile Bottom-Sheet Controller & Gestures
+let currentMobileSheetState = "peek"; // "peek", "half", "full", "minimized"
+
+function setMobileSheetState(state) {
+  currentMobileSheetState = state;
+  const sheet = document.getElementById("craft-drawer-card");
+  const chevron = document.getElementById("mobile-chevron-icon");
+  if (!sheet) return;
+
+  sheet.classList.remove("sheet-peek", "sheet-half", "sheet-full", "sheet-minimized");
+  sheet.classList.add(`sheet-${state}`);
+
+  if (chevron) {
+    if (state === "full") {
+      chevron.setAttribute("data-lucide", "chevron-down");
+    } else {
+      chevron.setAttribute("data-lucide", "chevron-up");
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function toggleMobileSheet() {
+  if (currentMobileSheetState === "peek" || currentMobileSheetState === "minimized") {
+    setMobileSheetState("half");
+  } else if (currentMobileSheetState === "half") {
+    setMobileSheetState("full");
+  } else {
+    setMobileSheetState("peek");
+  }
+}
+
+function initMobileSheetGestures() {
+  const handle = document.getElementById("mobile-sheet-handle");
+  if (!handle) return;
+
+  let startY = 0;
+
+  handle.addEventListener("touchstart", (e) => {
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  handle.addEventListener("touchend", (e) => {
+    const endY = e.changedTouches[0].clientY;
+    const diff = startY - endY;
+
+    if (diff > 30) {
+      // Swiped Up
+      if (currentMobileSheetState === "peek" || currentMobileSheetState === "minimized") {
+        setMobileSheetState("half");
+      } else if (currentMobileSheetState === "half") {
+        setMobileSheetState("full");
+      }
+    } else if (diff < -30) {
+      // Swiped Down
+      if (currentMobileSheetState === "full") {
+        setMobileSheetState("half");
+      } else if (currentMobileSheetState === "half") {
+        setMobileSheetState("peek");
+      }
+    }
+  }, { passive: true });
 }
 
 // User-Triggered GPS Button Handler
@@ -457,6 +522,14 @@ async function calculateRoute() {
     return;
   }
 
+  // On mobile: blur virtual keyboard & expand sheet to reveal options
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
+  if (window.innerWidth < 640) {
+    setMobileSheetState("half");
+  }
+
   const btn = document.getElementById("search-route-btn");
   const container = document.getElementById("route-results-container");
 
@@ -652,6 +725,11 @@ function startJourney(optionIndex) {
 
   const opt = currentRouteData.options[optionIndex];
 
+  // On mobile: expand sheet to full view so the user can read the entire itinerary guide
+  if (window.innerWidth < 640) {
+    setMobileSheetState("full");
+  }
+
   // Set up live bus tracking in HUD without hijacking map focus
   const firstBusLeg = opt.itinerary.find(l => !l.is_walking);
   if (firstBusLeg && firstBusLeg.live_vehicle) {
@@ -793,6 +871,9 @@ function exitJourney() {
   isJourneyActive = false;
   stopTrackingBus();
   renderOptionsList();
+  if (window.innerWidth < 640) {
+    setMobileSheetState("half");
+  }
 }
 
 function drawRouteGeometry(itinerary) {
@@ -872,7 +953,11 @@ function drawRouteGeometry(itinerary) {
 
   if (allCoords.length > 0) {
     try {
-      map.fitBounds(L.latLngBounds(allCoords), { padding: [60, 60], maxZoom: 16 });
+      const isMobile = window.innerWidth < 640;
+      const boundsPadding = isMobile
+        ? { paddingTopLeft: [20, 20], paddingBottomRight: [20, 240], maxZoom: 16 }
+        : { paddingTopLeft: [480, 40], paddingBottomRight: [40, 40], maxZoom: 16 };
+      map.fitBounds(L.latLngBounds(allCoords), boundsPadding);
     } catch (e) {
       console.warn("fitBounds error:", e);
     }

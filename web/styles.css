@@ -5,7 +5,7 @@
   --font-serif: 'Newsreader', Georgia, serif;
   
   --bg-canvas: #f6f5f2;
-  --panel-bg: rgba(255, 255, 255, 0.96);
+  --panel-bg: rgba(255, 255, 255, 0.97);
   --panel-border: rgba(228, 224, 217, 0.85);
   
   --ink-900: #18181b;
@@ -25,6 +25,7 @@
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -32,9 +33,11 @@ body {
   color: var(--ink-900);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
 }
 
 .serif-italic {
@@ -42,32 +45,122 @@ body {
   font-style: italic;
 }
 
-/* Floating Card Drawer (Apple Maps / Citymapper style) */
-.craft-drawer {
-  background: var(--panel-bg);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid var(--panel-border);
-  box-shadow: 0 20px 45px -10px rgba(24, 24, 27, 0.12), 0 0 0 1px rgba(24, 24, 27, 0.03);
-  height: 100%;
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  pointer-events: auto;
-}
-
 /* Full Bleed Map */
 #map {
   width: 100%;
   height: 100%;
+  position: absolute;
+  inset: 0;
   z-index: 1;
   background: #f1f0ec;
 }
 
+/* Desktop Floating Card Drawer (Apple Maps style) */
+@media (min-width: 640px) {
+  .craft-drawer-wrapper {
+    position: relative;
+    z-index: 10;
+    width: 460px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+    pointer-events: auto;
+  }
+
+  .craft-drawer {
+    background: var(--panel-bg);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 20px 45px -10px rgba(24, 24, 27, 0.12), 0 0 0 1px rgba(24, 24, 27, 0.03);
+    border-radius: 1.5rem;
+    height: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+/* Mobile Bottom-Sheet Architecture (iOS & Android style) */
+@media (max-width: 639px) {
+  .craft-drawer-wrapper {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+  }
+
+  .craft-drawer {
+    background: var(--panel-bg);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border-top: 1px solid var(--panel-border);
+    border-top-left-radius: 1.75rem;
+    border-top-right-radius: 1.75rem;
+    box-shadow: 0 -10px 35px -5px rgba(24, 24, 27, 0.18);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Sheet Expansion States on Mobile */
+  .craft-drawer.sheet-peek {
+    height: 240px;
+    max-height: 240px;
+  }
+
+  .craft-drawer.sheet-half {
+    height: 55vh;
+    height: 55dvh;
+    max-height: 55vh;
+    max-height: 55dvh;
+  }
+
+  .craft-drawer.sheet-full {
+    height: 88vh;
+    height: 88dvh;
+    max-height: 88vh;
+    max-height: 88dvh;
+  }
+
+  .craft-drawer.sheet-minimized {
+    height: 76px;
+    max-height: 76px;
+  }
+
+  /* Prevent iOS Safari input auto-zoom */
+  input[type="text"],
+  input[type="date"],
+  input[type="time"],
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Tactile Mobile Drag Handle */
+.mobile-drag-handle {
+  width: 40px;
+  height: 5px;
+  border-radius: 9999px;
+  background: #d6d1c7;
+  margin: 8px auto 4px auto;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.mobile-drag-handle:active,
+.mobile-drag-handle:hover {
+  background: #a8a29e;
+}
+
 /* Custom Artisan Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -92,6 +185,7 @@ body {
   scrollbar-color: #d6d1c7 transparent;
   touch-action: pan-y !important;
   pointer-events: auto !important;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
 /* Tactile Bus Pill Badge on Map */
@@ -125,8 +219,8 @@ body {
 
 /* Stop Dot Pins on Map */
 .transit-stop-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   background: #a1a1aa;
   border: 1.5px solid #ffffff;
   border-radius: 50%;
@@ -141,16 +235,16 @@ body {
 }
 
 .transit-stop-dot.origin {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   background: #4338ca;
   border: 2.5px solid #ffffff;
   box-shadow: 0 4px 12px rgba(67, 56, 202, 0.45);
 }
 
 .transit-stop-dot.destination {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   background: #047857;
   border: 2.5px solid #ffffff;
   box-shadow: 0 4px 12px rgba(4, 120, 87, 0.45);
@@ -159,6 +253,7 @@ body {
 /* Tactile Button Press Micro-interaction */
 .btn-tactile {
   transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  touch-action: manipulation;
 }
 .btn-tactile:active {
   transform: scale(0.97);
