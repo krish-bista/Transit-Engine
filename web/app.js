@@ -1063,8 +1063,11 @@ function updateLiveVehicles(vehicles) {
       telemetryText.innerText = `${vehicles.length} buses moving`;
     }
 
+    const activeVids = new Set();
+
     vehicles.forEach(v => {
       const vid = v.vehicle_id;
+      activeVids.add(vid);
       const isTracked = (vid === trackedVehicleId);
 
       if (!busMarkers[vid]) {
@@ -1099,10 +1102,23 @@ function updateLiveVehicles(vehicles) {
         if (el) {
           const pill = el.querySelector(".transit-bus-pill");
           if (pill) {
+            const span = pill.querySelector("span");
+            if (span && span.innerText !== String(v.route_id)) {
+              span.innerText = v.route_id;
+              pill.style.backgroundColor = v.route_color;
+            }
             if (isTracked) pill.classList.add("tracked");
             else pill.classList.remove("tracked");
           }
         }
+      }
+    });
+
+    // Remove stale vehicle markers
+    Object.keys(busMarkers).forEach(vid => {
+      if (!activeVids.has(vid)) {
+        map.removeLayer(busMarkers[vid]);
+        delete busMarkers[vid];
       }
     });
 

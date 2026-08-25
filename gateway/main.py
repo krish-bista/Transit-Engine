@@ -14,6 +14,21 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from datetime import datetime
+try:
+    import zoneinfo
+    TBAY_TZ = zoneinfo.ZoneInfo("America/Toronto")
+except Exception:
+    TBAY_TZ = None
+
+def get_thunder_bay_time() -> int:
+    if TBAY_TZ:
+        now = datetime.now(TBAY_TZ)
+        return now.hour * 3600 + now.minute * 60 + now.second
+    utc = datetime.utcnow()
+    h = (utc.hour - 4) % 24
+    return h * 3600 + utc.minute * 60 + utc.second
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -143,8 +158,7 @@ def get_routes():
 @app.get("/api/stops/{stop_id}/departures")
 def get_stop_departures(stop_id: int, time_sec: Optional[int] = None):
     if time_sec is None:
-        t = time.localtime()
-        time_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
+        time_sec = get_thunder_bay_time()
     departures = data_manager.get_upcoming_departures(stop_id, time_sec)
     for dep in departures:
         tid = dep["trip_id"]
@@ -339,15 +353,14 @@ def plan_route(req: RoutePlanRequest):
     dep_sec = 0
     if req.departure_time is None or req.departure_time == "now":
         # Current local time in Thunder Bay
-        t = time.localtime()
-        dep_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
+        dep_sec = get_thunder_bay_time()
     elif isinstance(req.departure_time, str) and ":" in req.departure_time:
         dep_sec = data_manager.hms_to_sec(req.departure_time)
     else:
         try:
             dep_sec = int(req.departure_time)
         except Exception:
-            dep_sec = 31620
+            dep_sec = get_thunder_bay_time()
 
     source = data_manager.get_stop(req.source_stop)
     target = data_manager.get_stop(req.target_stop)
@@ -416,8 +429,7 @@ async def telemetry_background_worker():
 
     while True:
         try:
-            t = time.localtime()
-            current_sec = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec
+            current_sec = get_thunder_bay_time()
 
             updated_vehicles = []
             seen_routes = set()

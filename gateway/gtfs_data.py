@@ -286,52 +286,50 @@ class GTFSDataManager:
 
         trip_meta = self.trips.get(trip_id, {})
         route_id = trip_meta.get("route_id", "")
-        shape_id = trip_meta.get("shape_id", "")
 
-        # Find the two bounding stops
-        prev_st = st_list[0]
-        next_st = st_list[-1]
-
-        if time_sec <= prev_st["dep_sec"]:
-            s_obj = self.get_stop(prev_st["stop_id"])
-            if not s_obj: return None
+        # Boundary checks
+        if time_sec <= st_list[0]["dep_sec"]:
+            s0 = self.get_stop(st_list[0]["stop_id"])
+            if not s0: return None
             return {
-                "lat": s_obj["lat"],
-                "lon": s_obj["lon"],
+                "lat": s0["lat"],
+                "lon": s0["lon"],
                 "speed_kmh": 0.0,
-                "current_stop_id": prev_st["stop_id"],
-                "next_stop_id": st_list[1]["stop_id"] if len(st_list) > 1 else prev_st["stop_id"],
+                "current_stop_id": st_list[0]["stop_id"],
+                "next_stop_id": st_list[1]["stop_id"],
                 "progress": 0.0
             }
 
-        if time_sec >= next_st["arr_sec"]:
-            s_obj = self.get_stop(next_st["stop_id"])
-            if not s_obj: return None
+        if time_sec >= st_list[-1]["arr_sec"]:
+            s_last = self.get_stop(st_list[-1]["stop_id"])
+            if not s_last: return None
             return {
-                "lat": s_obj["lat"],
-                "lon": s_obj["lon"],
+                "lat": s_last["lat"],
+                "lon": s_last["lon"],
                 "speed_kmh": 0.0,
-                "current_stop_id": next_st["stop_id"],
-                "next_stop_id": next_st["stop_id"],
+                "current_stop_id": st_list[-1]["stop_id"],
+                "next_stop_id": st_list[-1]["stop_id"],
                 "progress": 1.0
             }
 
+        # Find the active segment
+        prev_st = st_list[0]
+        next_st = st_list[1]
         for i in range(len(st_list) - 1):
-            if st_list[i]["dep_sec"] <= time_sec <= st_list[i+1]["arr_sec"]:
+            if st_list[i]["dep_sec"] <= time_sec:
                 prev_st = st_list[i]
                 next_st = st_list[i+1]
-                break
 
         s1 = self.get_stop(prev_st["stop_id"])
         s2 = self.get_stop(next_st["stop_id"])
         if not s1 or not s2:
             return None
 
-        duration = max(1, next_st["arr_sec"] - prev_st["dep_sec"])
-        elapsed = max(0, time_sec - prev_st["dep_sec"])
-        ratio = min(1.0, max(0.0, elapsed / duration))
+        dep = prev_st["dep_sec"]
+        arr = max(dep + 20, next_st["arr_sec"])
+        elapsed = max(0, min(arr - dep, time_sec - dep))
+        ratio = elapsed / (arr - dep)
 
-        # Get shape segment between stops
         seg = self.get_shape_segment(route_id, s1["lat"], s1["lon"], s2["lat"], s2["lon"])
         if len(seg) >= 2:
             idx = int(ratio * (len(seg) - 1))
@@ -341,12 +339,12 @@ class GTFSDataManager:
             lat = s1["lat"] + (s2["lat"] - s1["lat"]) * ratio
             lon = s1["lon"] + (s2["lon"] - s1["lon"]) * ratio
 
-        # Compute speed
         dlat = math.radians(s2["lat"] - s1["lat"])
         dlon = math.radians(s2["lon"] - s1["lon"])
         a = math.sin(dlat / 2.0)**2 + math.cos(math.radians(s1["lat"])) * math.cos(math.radians(s2["lat"])) * math.sin(dlon / 2.0)**2
         dist_m = 2.0 * 6371000.0 * math.asin(math.sqrt(a))
-        speed_kmh = round(min(55.0, max(15.0, (dist_m / duration) * 3.6)), 1)
+        duration = max(20, arr - dep)
+        speed_kmh = round(min(55.0, max(12.0, (dist_m / duration) * 3.6)), 1)
 
         return {
             "lat": lat,
