@@ -198,6 +198,23 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     last_alight = None
     transit_transfers = 0
 
+    # Align initial walking leg(s) with actual first bus departure schedule
+    first_bus_idx = None
+    for i, leg in enumerate(raw_path):
+        is_w = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
+        if not is_w:
+            first_bus_idx = i
+            break
+
+    if first_bus_idx is not None and first_bus_idx > 0:
+        bus_dep = raw_path[first_bus_idx]["board_time"]
+        curr_time = bus_dep
+        for i in range(first_bus_idx - 1, -1, -1):
+            dur = max(30, raw_path[i]["alight_time"] - raw_path[i]["board_time"])
+            raw_path[i]["alight_time"] = curr_time
+            raw_path[i]["board_time"] = curr_time - dur
+            curr_time = raw_path[i]["board_time"]
+
     for i, leg in enumerate(raw_path):
         b_stop = data_manager.get_stop(leg["board_stop"]) or {"id": leg["board_stop"], "name": f"Stop {leg['board_stop']}", "lat": 0, "lon": 0}
         a_stop = data_manager.get_stop(leg["alight_stop"]) or {"id": leg["alight_stop"], "name": f"Stop {leg['alight_stop']}", "lat": 0, "lon": 0}
