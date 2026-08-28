@@ -1,16 +1,16 @@
-# 🚀 1-Click Cloud Deployment Guide (Get Your Live Resume Link)
+# 1-Click Cloud Deployment Guide (Get Your Live Resume Link)
 
 This guide walks you through deploying your **TransitEngine** full-stack system to the cloud for free so you can showcase a live, interactive link directly on your Resume, Portfolio, and GitHub profile.
 
 ---
 
-## 🌟 Recommended Free Cloud Platforms
+## Recommended Free Cloud Platforms
 
 | Platform | Best For | Setup Time | Custom Domain & SSL |
 | :--- | :--- | :--- | :--- |
-| **Render** (Recommended) | Easiest 1-click Docker deploy | ~2 minutes | ✅ Free Automatic HTTPS |
-| **Railway** | Full-stack monorepos with Redis | ~3 minutes | ✅ Free Automatic HTTPS |
-| **Fly.io** | Low-latency global edge | ~3 minutes | ✅ Free Automatic HTTPS |
+| **Render** (Recommended) | Easiest 1-click Docker deploy | ~2 minutes | Free Automatic HTTPS |
+| **Railway** | Full-stack monorepos with Redis | ~3 minutes | Free Automatic HTTPS |
+| **Fly.io** | Low-latency global edge | ~3 minutes | Free Automatic HTTPS |
 
 ---
 
@@ -38,7 +38,7 @@ git push origin main
 5. Click **Create Web Service**.
 
 Within ~2 minutes, Render will build your container and give you a live HTTPS URL:
-👉 `https://your-transit-engine.onrender.com`
+`https://your-transit-engine.onrender.com`
 
 ---
 
@@ -52,11 +52,11 @@ docker compose up -d
 ```
 
 Access the web interface at:
-👉 `http://localhost:8000`
+`http://localhost:8000`
 
 ---
 
-## 📋 What to Put on Your Resume
+## What to Put on Your Resume
 
 ### Project Title
 **TransitEngine – High-Performance Multi-Modal Transit Engine & Live Telemetry Platform**  

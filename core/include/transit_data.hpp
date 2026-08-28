@@ -9,8 +9,6 @@
 
 namespace transit {
 
-// ── Packed structs for zero-padding binary compatibility with Python ─────────
-
 #pragma pack(push, 1)
 
 struct PackedStop {
@@ -29,12 +27,6 @@ struct PackedStopTime {
 
 #pragma pack(pop)
 
-// ── Binary loader ────────────────────────────────────────────────────────────
-
-/// Loads a binary file written by Python's struct.pack into a vector of T.
-/// Opens in binary+ate mode to determine file size upfront, validates that
-/// the size is an exact multiple of sizeof(T), then block-reads the entire
-/// file in a single operation.
 template <typename T>
 std::vector<T> load_binary_data(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
