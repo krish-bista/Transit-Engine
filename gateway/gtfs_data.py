@@ -4,7 +4,6 @@ import math
 import pandas as pd
 from typing import List, Dict, Any, Optional
 
-# Official Thunder Bay Transit Route Catalog
 THUNDER_BAY_ROUTES = {
     "1": {"name": "Mainline", "color": "#E11D48", "text_color": "#FFFFFF"},
     "2": {"name": "Crosstown", "color": "#0284C7", "text_color": "#FFFFFF"},
@@ -34,7 +33,6 @@ class GTFSDataManager:
         self.raw_dir = raw_dir or os.path.join(base_dir, "raw_gtfs")
         self.binary_dir = binary_dir or os.path.join(base_dir, "binary_gtfs")
         
-        # In-memory storage
         self.stops: List[Dict[str, Any]] = []
         self.stop_by_id: Dict[int, Dict[str, Any]] = {}
         self.stop_by_raw_id: Dict[str, int] = {}
@@ -51,7 +49,6 @@ class GTFSDataManager:
         self.load_data()
 
     def load_data(self):
-        # 1. Load stops.txt
         stops_file = os.path.join(self.raw_dir, "stops.txt")
         if not os.path.exists(stops_file):
             stops_file = os.path.join(self.raw_dir, "extracted", "stops.txt")
@@ -74,7 +71,6 @@ class GTFSDataManager:
                 self.stops.append(stop_obj)
                 self.stop_by_id[idx] = stop_obj
 
-        # 2. Load routes.txt
         routes_file = os.path.join(self.raw_dir, "routes.txt")
         if not os.path.exists(routes_file):
             routes_file = os.path.join(self.raw_dir, "extracted", "routes.txt")
@@ -107,7 +103,6 @@ class GTFSDataManager:
                     "text_color": text_color,
                 }
 
-        # 3. Load shapes.txt (Road Polylines)
         shapes_file = os.path.join(self.raw_dir, "shapes.txt")
         if not os.path.exists(shapes_file):
             shapes_file = os.path.join(self.raw_dir, "extracted", "shapes.txt")
@@ -119,7 +114,6 @@ class GTFSDataManager:
                 pts = group.sort_values("seq")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
                 self.shapes[str(shape_id)] = pts
 
-        # 4. Load trips.txt
         trips_file = os.path.join(self.raw_dir, "trips.txt")
         if not os.path.exists(trips_file):
             trips_file = os.path.join(self.raw_dir, "extracted", "trips.txt")
@@ -147,7 +141,6 @@ class GTFSDataManager:
                 if shape_id in self.shapes and shape_id not in self.route_shapes[rid]:
                     self.route_shapes[rid].append(shape_id)
 
-        # 5. Load stop_times.txt
         st_file = os.path.join(self.raw_dir, "stop_times.txt")
         if not os.path.exists(st_file):
             st_file = os.path.join(self.raw_dir, "extracted", "stop_times.txt")
@@ -176,7 +169,6 @@ class GTFSDataManager:
                         self.trip_stop_times[tid] = []
                     self.trip_stop_times[tid].append(st_obj)
 
-            # Sort and build trip spans
             for tid, st_list in self.trip_stop_times.items():
                 st_list.sort(key=lambda s: s["seq"])
                 if st_list:
@@ -187,7 +179,6 @@ class GTFSDataManager:
                         "end_stop": st_list[-1]["stop_id"],
                     }
 
-            # Build block_trips chaining
             for tid, meta in self.trips.items():
                 bid = meta.get("block_id")
                 if bid and tid in self.trip_spans:
@@ -198,7 +189,6 @@ class GTFSDataManager:
             for bid in self.block_trips:
                 self.block_trips[bid].sort(key=lambda t: self.trip_spans.get(t, {}).get("start_sec", 0))
 
-        # 6. Load calendar_dates.txt
         cal_file = os.path.join(self.raw_dir, "calendar_dates.txt")
         if not os.path.exists(cal_file):
             cal_file = os.path.join(self.raw_dir, "extracted", "calendar_dates.txt")
@@ -243,7 +233,6 @@ class GTFSDataManager:
             if not span:
                 continue
 
-            # Strict check: Bus is ONLY active between scheduled departure from first stop and arrival at last stop
             if span["start_sec"] <= current_sec <= span["end_sec"]:
                 bid = meta.get("block_id") or tid
                 if bid in seen_blocks:
@@ -368,7 +357,6 @@ class GTFSDataManager:
         trip_meta = self.trips.get(trip_id, {})
         route_id = trip_meta.get("route_id", "")
 
-        # Boundary checks
         if time_sec <= st_list[0]["dep_sec"]:
             s0 = self.get_stop(st_list[0]["stop_id"])
             if not s0: return None
@@ -393,7 +381,6 @@ class GTFSDataManager:
                 "progress": 1.0
             }
 
-        # Find the active segment
         prev_st = st_list[0]
         next_st = st_list[1]
         for i in range(len(st_list) - 1):

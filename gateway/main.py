@@ -5,7 +5,6 @@ import math
 import asyncio
 from typing import List, Dict, Any, Optional
 
-# Ensure gateway directory and project root are always in sys.path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
@@ -44,7 +43,6 @@ except ImportError:
 
 app = FastAPI(title="Transit Engine", version="2.5.0")
 
-# Enable CORS for open mobile access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,11 +51,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load GTFS Engine
 data_manager = GTFSDataManager()
 raptor_engine = RaptorEngine(data_manager.stops, data_manager.stop_times, data_manager.routes, data_manager.trips)
 
-# WebSocket Connection Manager
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -79,11 +75,9 @@ class ConnectionManager:
 
 ws_manager = ConnectionManager()
 
-# Real-time state
 live_delays: Dict[int, Dict[str, Any]] = {}
 live_vehicles: List[Dict[str, Any]] = []
 
-# Pydantic Schemas
 class RoutePlanRequest(BaseModel):
     source_stop: int
     target_stop: int
@@ -98,7 +92,6 @@ class StopDTO(BaseModel):
     lon: float
     raw_id: str
 
-# Static Files
 WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
 if os.path.exists(WEB_DIR):
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -218,7 +211,6 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
     if not itinerary_raw:
         return None, latency_ms
 
-    # Identify first transit bus boarding timestamp for backward walk sync
     first_bus_boarding_sec = None
     for leg in itinerary_raw:
         is_walk = (leg["route_id"] == "WALK" or (isinstance(leg["route_id"], int) and leg["route_id"] >= 0xFFFFFFFE))
@@ -252,7 +244,6 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
                 [a_stop.get("lat", 0.0), a_stop.get("lon", 0.0)]
             ]
 
-            # Backward schedule synchronization for initial walking leg
             if i == 0 and first_bus_boarding_sec is not None:
                 walk_duration = max(60, leg["alight_time"] - leg["board_time"])
                 leg["alight_time"] = first_bus_boarding_sec
@@ -264,7 +255,6 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             bus_line_name = route_meta.get("long_name", "")
             headsign = leg.get("headsign", "")
 
-            # Check for In-Seat Block Chaining (Stay on Board)
             prev_transit_leg = None
             for prev in reversed(formatted_legs):
                 if not prev["is_walking"]:
@@ -297,7 +287,6 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
             route_text_color = route_meta.get("text_color", "#FFFFFF")
             live_vehicle = find_live_vehicle_for_trip(leg.get("trip_id"), bus_number, b_stop)
 
-            # Slices true road coordinates from shapes.txt
             leg_geometry = data_manager.get_shape_segment(raw_rid, b_stop["lat"], b_stop["lon"], a_stop["lat"], a_stop["lon"])
             if len(leg_geometry) <= 2 and bus_number:
                 leg_geometry = data_manager.get_shape_segment(bus_number, b_stop["lat"], b_stop["lon"], a_stop["lat"], a_stop["lon"])
@@ -309,7 +298,6 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
         duration_sec = max(0, leg["alight_time"] - leg["board_time"])
         duration_mins = max(1, duration_sec // 60)
 
-        # Distance estimation
         d_lat = (a_stop["lat"] - b_stop["lat"]) * 111320
         d_lon = (a_stop["lon"] - b_stop["lon"]) * 111320 * math.cos(math.radians(b_stop["lat"]))
         dist_m = int(math.sqrt(d_lat**2 + d_lon**2))
@@ -377,7 +365,6 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
 def plan_route(req: RoutePlanRequest):
     dep_sec = 0
     if req.departure_time is None or req.departure_time == "now":
-        # Current local time in Thunder Bay
         dep_sec = get_thunder_bay_time()
     elif isinstance(req.departure_time, str) and ":" in req.departure_time:
         dep_sec = data_manager.hms_to_sec(req.departure_time)
@@ -443,7 +430,6 @@ def plan_route(req: RoutePlanRequest):
         "arrival_time": options[0]["arrival_time"]
     }
 
-# Schedule-Exact Active Vehicle Telemetry Worker (Strictly Real Buses)
 async def telemetry_background_worker():
     stops = data_manager.stops
     if not stops:

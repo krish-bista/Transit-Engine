@@ -9,7 +9,6 @@ class RaptorEngine:
         self.trips_meta = trips_meta
         self.stop_by_id = {s["id"]: s for s in stops}
 
-        # Build Routes & Index
         self._build_index(raw_stop_times)
         self._build_footpaths()
 
@@ -39,7 +38,6 @@ class RaptorEngine:
                     self.footpaths[i].append((j, dur_sec, int(dist)))
 
     def _build_index(self, raw_stop_times: List[Dict[str, Any]]):
-        # 1. Group by trip
         trips_st: Dict[str, List[Dict[str, Any]]] = {}
         for st in raw_stop_times:
             tid = st["trip_id"]
@@ -47,11 +45,9 @@ class RaptorEngine:
                 trips_st[tid] = []
             trips_st[tid].append(st)
 
-        # Sort each trip by stop_sequence
         for tid in trips_st:
             trips_st[tid].sort(key=lambda x: x["stop_sequence"])
 
-        # 2. Group by unique stop sequence -> Route
         seq_to_trips: Dict[Tuple[int, ...], List[List[Dict[str, Any]]]] = {}
         for tid, st_list in trips_st.items():
             seq = tuple(st["stop_id"] for st in st_list)
@@ -63,10 +59,8 @@ class RaptorEngine:
         self.stop_to_routes: Dict[int, List[int]] = {i: [] for i in range(self.num_stops)}
 
         for route_id, (seq, trips) in enumerate(seq_to_trips.items()):
-            # Sort trips within route by departure time at first stop
             trips.sort(key=lambda st_list: st_list[0]["dep_sec"])
 
-            # Extract trip metadata for this route
             first_trip_id = trips[0][0]["trip_id"]
             first_trip_info = self.trips_meta.get(first_trip_id, {})
             real_route_id = first_trip_info.get("route_id", f"{route_id + 1}")
@@ -103,7 +97,6 @@ class RaptorEngine:
         earliest_arrival[source_stop] = departure_time
         marked_stops = {source_stop}
 
-        # Initial walking footpaths from source
         for to_stop, dur, dist in self.footpaths.get(source_stop, []):
             walk_arr = departure_time + dur
             if walk_arr < earliest_arrival[to_stop]:
@@ -114,13 +107,11 @@ class RaptorEngine:
                 board_time[to_stop] = departure_time
                 alight_time[to_stop] = walk_arr
 
-        # RAPTOR rounds (up to 4 transfers)
         for k in range(4):
             prev_arrival = list(earliest_arrival)
             next_marked = set()
             route_boarding = {}
 
-            # Step 1: Accumulate routes serving marked stops
             for s in marked_stops:
                 for r_id in self.stop_to_routes.get(s, []):
                     route = self.routes[r_id]
@@ -131,7 +122,6 @@ class RaptorEngine:
                     except ValueError:
                         pass
 
-            # Step 2: Traverse each route
             for r_id, p_start in route_boarding.items():
                 route = self.routes[r_id]
                 current_trip_idx = None
@@ -141,7 +131,6 @@ class RaptorEngine:
                 for p in range(p_start, route["num_stops"]):
                     s_id = route["stops"][p]
 
-                    # Alight check
                     if current_trip_idx is not None:
                         st = route["trips"][current_trip_idx][p]
                         if st["arr_sec"] < earliest_arrival[s_id]:
@@ -153,7 +142,6 @@ class RaptorEngine:
                             board_time[s_id] = current_board_time
                             alight_time[s_id] = st["arr_sec"]
 
-                    # Boarding check
                     if s_id in marked_stops and prev_arrival[s_id] != INF:
                         trips = route["trips"]
                         low = 0
@@ -173,7 +161,6 @@ class RaptorEngine:
                             board_stop_id = s_id
                             current_board_time = trips[best_t][p]["dep_sec"]
 
-            # Step 3: Footpath relaxation (NO chained footpaths)
             bus_alighted = [s for s in next_marked if parent_route[s] != "WALK"]
             for u in bus_alighted:
                 for to_stop, dur, dist in self.footpaths.get(u, []):
@@ -190,7 +177,6 @@ class RaptorEngine:
                 break
             marked_stops = next_marked
 
-        # Reconstruct path
         if earliest_arrival[target_stop] == INF:
             return None
 
