@@ -14,8 +14,6 @@
 
 namespace transit {
 
-// ── Route descriptor for the flattened RAPTOR index ─────────────────────────
-
 struct Route {
   uint32_t id;
   uint32_t num_stops;
@@ -24,34 +22,25 @@ struct Route {
   uint32_t stop_times_offset;
 };
 
-// ── Footpath transfer between nearby stops ───────────────────────────────────
-
 struct Footpath {
   uint32_t to_stop;
   uint32_t duration_sec;
   uint32_t distance_m;
 };
 
-// ── Data-Oriented graph index for RAPTOR ────────────────────────────────────
-
 class RaptorGraph {
 public:
   mutable std::shared_mutex graph_mutex;
 
-  // Raw GTFS data
   std::vector<PackedStop> stops;
   std::vector<PackedStopTime> stop_times;
 
-  // Flattened 2D array mappings
-  std::vector<uint32_t>
-      stop_routes_offsets;           // CSR-style offsets: per-stop → routes
-  std::vector<uint32_t> stop_routes; // flat list of route indices per stop
-  std::vector<uint32_t> route_stops; // flat list of stop ids per route
+  std::vector<uint32_t> stop_routes_offsets;
+  std::vector<uint32_t> stop_routes;
+  std::vector<uint32_t> route_stops;
 
-  // Route descriptors
   std::vector<Route> routes;
 
-  // Walking transfers between nearby stops (CSR representation)
   std::vector<uint32_t> footpath_offsets;
   std::vector<Footpath> footpaths;
 
@@ -67,12 +56,10 @@ public:
     return R * c;
   }
 
-  /// Builds the Data-Oriented RAPTOR graph index from raw stops and stop_times.
   void build_index(std::vector<PackedStop> &&raw_stops,
                    std::vector<PackedStopTime> &&raw_stop_times) {
     stops = std::move(raw_stops);
 
-    // Clear member containers
     stop_times.clear();
     routes.clear();
     route_stops.clear();
@@ -81,7 +68,6 @@ public:
     footpaths.clear();
     footpath_offsets.clear();
 
-    // 1. Group by Trip: sort by trip_id, then stop_sequence
     std::sort(raw_stop_times.begin(), raw_stop_times.end(),
               [](const PackedStopTime &a, const PackedStopTime &b) {
                 if (a.trip_id != b.trip_id) {
@@ -95,7 +81,6 @@ public:
       trip_stoptimes[st.trip_id].push_back(st);
     }
 
-    // 2. Hash Stop Sequences: map unique stop_id sequences to list of trip_ids
     std::map<std::vector<uint32_t>, std::vector<uint32_t>> sequence_to_trips;
     for (const auto &[trip_id, st_vec] : trip_stoptimes) {
       std::vector<uint32_t> seq;
@@ -106,9 +91,7 @@ public:
       sequence_to_trips[seq].push_back(trip_id);
     }
 
-    // 3. Populate Routes & Arrays
     for (auto &[seq, trip_ids] : sequence_to_trips) {
-      // Sort trips within route by departure time at first stop
       std::sort(trip_ids.begin(), trip_ids.end(),
                 [&](uint32_t t1, uint32_t t2) {
                   return trip_stoptimes[t1].front().dep_sec <
@@ -136,7 +119,6 @@ public:
       routes.push_back(route);
     }
 
-    // 4. Build CSR Stop-to-Route Mapping
     std::vector<std::vector<uint32_t>> stop_to_routes(stops.size());
     for (const auto &route : routes) {
       for (uint32_t i = 0; i < route.num_stops; ++i) {
@@ -161,10 +143,9 @@ public:
     }
     stop_routes_offsets[stops.size()] = current_offset;
 
-    // 5. Build Spatial Walking Transfers (Footpaths within 500 meters)
     std::vector<std::vector<Footpath>> adj_footpaths(stops.size());
     constexpr double MAX_WALK_DIST_M = 500.0;
-    constexpr double WALK_SPEED_MPS = 1.25; // ~4.5 km/h
+    constexpr double WALK_SPEED_MPS = 1.25;
 
     for (size_t i = 0; i < stops.size(); ++i) {
       for (size_t j = 0; j < stops.size(); ++j) {
@@ -188,7 +169,6 @@ public:
     }
     footpath_offsets[stops.size()] = fp_offset;
 
-    // 6. Print Stats
     std::cout << "Generated " << routes.size() << " unique RAPTOR routes and "
               << footpaths.size() << " multi-modal walking footpaths.\n";
   }

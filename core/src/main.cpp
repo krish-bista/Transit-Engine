@@ -30,12 +30,10 @@ int main() {
 
     std::cout << "RAPTOR Graph initialized successfully.\n";
 
-    // Start Telemetry Consumer for live delay updates
     transit::TelemetryConsumer consumer(graph);
     consumer.start();
     std::cout << "Telemetry Consumer started.\n";
 
-    // Stand up the gRPC server
     const std::string server_address("0.0.0.0:50051");
     transit::RoutingServiceImpl service(graph);
 

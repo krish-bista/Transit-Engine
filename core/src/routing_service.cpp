@@ -11,9 +11,6 @@ grpc::Status
 RoutingServiceImpl::GetEarliestArrival(grpc::ServerContext * /*context*/,
                                        const RouteRequest *request,
                                        RouteResponse *response) {
-  // Instantiate a local router per request.
-  // RaptorRouter::find_earliest_arrival already acquires a std::shared_lock
-  // on the graph internally, so concurrent RPCs are safe.
   RaptorRouter router(graph_);
 
   uint32_t arrival =

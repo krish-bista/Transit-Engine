@@ -6,7 +6,7 @@
 namespace transit {
 
 static constexpr uint32_t INF = 0xFFFFFFFF;
-static constexpr uint32_t FOOTPATH_ROUTE_ID = 0xFFFFFFFE; // Marker for walking leg
+static constexpr uint32_t FOOTPATH_ROUTE_ID = 0xFFFFFFFE;
 
 RaptorRouter::RaptorRouter(const RaptorGraph& graph) : graph_(graph) {}
 
@@ -37,7 +37,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
     std::vector<bool> marked_stops(num_stops, false);
     marked_stops[source_stop] = true;
 
-    // Initial Footpaths from source_stop
     if (source_stop < graph_.footpath_offsets.size() - 1) {
         const uint32_t fp_begin = graph_.footpath_offsets[source_stop];
         const uint32_t fp_end   = graph_.footpath_offsets[source_stop + 1];
@@ -56,14 +55,12 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
         }
     }
 
-    // Loop for K=4 rounds (up to 4 transfers)
     constexpr int MAX_ROUNDS = 4;
     for (int k = 0; k < MAX_ROUNDS; ++k) {
         auto prev_arrival = earliest_arrival;
         std::vector<bool> next_marked(num_stops, false);
         std::vector<uint32_t> route_boarding(graph_.routes.size(), INF);
 
-        // Step 1: Accumulate routes serving marked stops
         for (uint32_t stop_id = 0; stop_id < num_stops; ++stop_id) {
             if (!marked_stops[stop_id]) continue;
 
@@ -74,7 +71,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
                 const uint32_t route_id = graph_.stop_routes[r_idx];
                 const auto& route = graph_.routes[route_id];
 
-                // Find position of stop_id in route
                 for (uint32_t p = 0; p < route.num_stops; ++p) {
                     if (graph_.route_stops[route.route_stops_offset + p] == stop_id) {
                         if (p < route_boarding[route_id]) {
@@ -86,7 +82,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
             }
         }
 
-        // Step 2: Traverse each route with a valid boarding stop
         for (uint32_t r_id = 0; r_id < graph_.routes.size(); ++r_id) {
             if (route_boarding[r_id] == INF) continue;
 
@@ -98,7 +93,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
             for (uint32_t p = route_boarding[r_id]; p < route.num_stops; ++p) {
                 const uint32_t stop_id = graph_.route_stops[route.route_stops_offset + p];
 
-                // 1. Can we alight at stop_id on the current trip?
                 if (current_trip != INF) {
                     const size_t st_idx = route.stop_times_offset +
                                           static_cast<size_t>(current_trip) * route.num_stops + p;
@@ -115,7 +109,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
                     }
                 }
 
-                // 2. Binary search earliest departing trip >= prev_arrival[stop_id]
                 if (marked_stops[stop_id] && prev_arrival[stop_id] != INF) {
                     int low = 0;
                     int high = (current_trip == INF) ? static_cast<int>(route.num_trips) - 1
@@ -145,7 +138,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
             }
         }
 
-        // Step 3: Multi-modal Footpath Transfers between nearby stops (NO chained footpaths)
         std::vector<uint32_t> bus_alighted_stops;
         for (uint32_t s = 0; s < num_stops; ++s) {
             if (next_marked[s] && parent_route_[s] != FOOTPATH_ROUTE_ID) {
@@ -174,7 +166,6 @@ uint32_t RaptorRouter::find_earliest_arrival(uint32_t source_stop,
             }
         }
 
-        // If next_marked is completely empty, break early
         bool any_marked = false;
         for (bool m : next_marked) {
             if (m) {
@@ -205,7 +196,7 @@ std::vector<RaptorRouter::Leg> RaptorRouter::reconstruct_path(uint32_t target_st
     std::vector<bool> visited(num_stops, false);
 
     while (curr != source_stop_ && parent_stop_[curr] != INF && parent_route_[curr] != INF && iterations < num_stops) {
-        if (visited[curr]) break; // prevent cycles
+        if (visited[curr]) break;
         visited[curr] = true;
 
         RaptorRouter::Leg leg;
