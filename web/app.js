@@ -1,4 +1,3 @@
-// Global State
 let map;
 let stopsData = [];
 let routesData = [];
@@ -18,7 +17,6 @@ let trackedVehicleId = null;
 let trackedBoardStop = null;
 let ws;
 
-// Initialize when DOM loads
 document.addEventListener("DOMContentLoaded", async () => {
   if (window.lucide) {
     lucide.createIcons();
@@ -42,11 +40,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     calculateRoute();
   });
 
-  // Automatically detect user location on load
   detectUserLocation();
 });
 
-// Map Setup with warm, clear street map tiles
 function initMap() {
   map = L.map("map", {
     zoomControl: false,
@@ -62,7 +58,6 @@ function initMap() {
     tap: false
   }).setView([48.406, -89.260], 13);
 
-  // CartoDB Voyager tiles (crisp street labels, parks, water, clean human aesthetic)
   L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     maxZoom: 19,
     subdomains: "abcd",
@@ -74,7 +69,6 @@ function initMap() {
   routePolylineLayer = L.layerGroup().addTo(map);
   trackingPolylineLayer = L.layerGroup().addTo(map);
 
-  // Disable Leaflet from intercepting scroll wheel and touch events on the drawer
   const drawer = document.querySelector(".craft-drawer");
   const scrollContainer = document.querySelector(".drawer-scroll-container");
   if (drawer && window.L && L.DomEvent) {
@@ -94,7 +88,6 @@ function centerMapOnTransit() {
   }
 }
 
-// Automatic User Location Detection on Load
 function detectUserLocation() {
   const input = document.getElementById("source-input");
   if (!navigator.geolocation) {
@@ -102,7 +95,7 @@ function detectUserLocation() {
     return;
   }
 
-  if (input) input.placeholder = "📍 Locating your position...";
+  if (input) input.placeholder = "Locating your position...";
 
   navigator.geolocation.getCurrentPosition(
     async (position) => {
@@ -117,10 +110,9 @@ function detectUserLocation() {
 
         sourceStopId = nearest.id;
         if (input) {
-          input.value = `📍 Current Location (${nearest.name})`;
+          input.value = `Current Location (${nearest.name})`;
         }
 
-        // Add user GPS pulse pin on map
         showUserPositionMarker(lat, lon, nearest.name);
       } catch (err) {
         fallbackOriginLocation();
@@ -161,11 +153,10 @@ function showUserPositionMarker(lat, lon, stopName) {
   });
 
   userMarker = L.marker([lat, lon], { icon }).addTo(map);
-  userMarker.bindPopup(`<div class="p-1 font-bold text-xs">📍 Your Location (Near ${stopName})</div>`);
+  userMarker.bindPopup(`<div class="p-1 font-bold text-xs">Your Location (Near ${stopName})</div>`);
   map.flyTo([lat, lon], 14, { duration: 1.0 });
 }
 
-// Native-Grade GPU Sheet Transform Controller (120fps Hardware Accelerated)
 let sheetState = "peek"; // "full", "half", "peek", "minimized"
 let currentSheetY = 0; // Current translateY in pixels
 
@@ -233,7 +224,6 @@ function initMobileSheetGestures() {
   let lastTime = 0;
   let velocityY = 0;
 
-  // Initialize initial position on mobile
   if (window.innerWidth < 640) {
     setMobileSheetState("peek", false);
   }
@@ -259,7 +249,6 @@ function initMobileSheetGestures() {
     isTouching = true;
     isDraggingSheet = false;
 
-    // Direct drag when touching header, handle, or tabs
     const isTopHeader = e.target.closest("#mobile-sheet-drag-area") || 
                         e.target.closest(".craft-drawer-header") ||
                         e.target.closest(".mobile-drag-handle") ||
@@ -287,15 +276,12 @@ function initMobileSheetGestures() {
     lastTouchY = currentY;
     lastTime = now;
 
-    // Detect vertical drag gesture
     if (!isDraggingSheet) {
       if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
         if (sheetState !== "full") {
-          // If sheet is half or peek, dragging anywhere moves the sheet
           isDraggingSheet = true;
           sheet.style.transition = "none";
         } else if (scrollContainer && scrollContainer.scrollTop <= 0 && deltaY > 0) {
-          // If at full height and at top, pulling down moves sheet down to uncover map
           isDraggingSheet = true;
           sheet.style.transition = "none";
         }
@@ -306,7 +292,6 @@ function initMobileSheetGestures() {
       const bp = getSheetBreakpoints();
       let newY = startSheetY + deltaY;
 
-      // Elastic resistance past boundaries
       if (newY < 0) {
         newY = newY * 0.25;
       } else if (newY > bp.maxDrag) {
@@ -329,23 +314,19 @@ function initMobileSheetGestures() {
 
     const bp = getSheetBreakpoints();
 
-    // Fast flick / fling momentum
     if (velocityY < -0.35) {
-      // Swiped UP fast
       if (currentSheetY > bp.half + 30) {
         setMobileSheetState("half");
       } else {
         setMobileSheetState("full");
       }
     } else if (velocityY > 0.35) {
-      // Swiped DOWN fast
       if (currentSheetY < bp.half - 30) {
         setMobileSheetState("half");
       } else {
         setMobileSheetState("peek");
       }
     } else {
-      // Snap to closest anchor breakpoint
       const dFull = Math.abs(currentSheetY - bp.full);
       const dHalf = Math.abs(currentSheetY - bp.half);
       const dPeek = Math.abs(currentSheetY - bp.peek);
@@ -365,10 +346,9 @@ function initMobileSheetGestures() {
   sheet.addEventListener("touchcancel", handleTouchEnd, { passive: true });
 }
 
-// User-Triggered GPS Button Handler
 async function useCurrentLocation() {
   const input = document.getElementById("source-input");
-  if (input) input.value = "📍 Locating your position...";
+  if (input) input.value = "Locating your position...";
 
   if (!navigator.geolocation) {
     alert("Geolocation is not supported by your browser.");
@@ -388,7 +368,7 @@ async function useCurrentLocation() {
         const nearest = await res.json();
 
         sourceStopId = nearest.id;
-        if (input) input.value = `📍 Current Location (${nearest.name})`;
+        if (input) input.value = `Current Location (${nearest.name})`;
         showUserPositionMarker(lat, lon, nearest.name);
 
         if (targetStopId) calculateRoute();
@@ -419,7 +399,6 @@ function setQuickDestination(name, stopId) {
   calculateRoute();
 }
 
-// Load Stops from Gateway
 async function loadStops() {
   try {
     const res = await fetch("/api/stops");
@@ -431,7 +410,6 @@ async function loadStops() {
   }
 }
 
-// Load Routes
 async function loadRoutes() {
   try {
     const res = await fetch("/api/routes");
@@ -442,7 +420,6 @@ async function loadRoutes() {
   }
 }
 
-// Render Stop Dots (High-performance GPU Canvas rendering)
 function renderStopPins() {
   if (!stopMarkersLayer || !map) return;
   stopMarkersLayer.clearLayers();
@@ -519,7 +496,6 @@ function highlightStopOnMap(stop, isOrigin = true) {
   }
 }
 
-// Autocomplete Helper with Mobile Focus Expansion
 function setupAutocomplete(inputId, resultsId, onSelect) {
   const input = document.getElementById(inputId);
   const results = document.getElementById(resultsId);
@@ -657,13 +633,11 @@ function setTimeMode(mode) {
   }
 }
 
-// Calculate Route
 async function calculateRoute() {
   if (!sourceStopId || !targetStopId) {
     return;
   }
 
-  // On mobile: blur virtual keyboard & expand sheet to reveal options
   if (document.activeElement && typeof document.activeElement.blur === 'function') {
     document.activeElement.blur();
   }
@@ -757,7 +731,6 @@ async function calculateRoute() {
   }
 }
 
-// 1. Render Options List (Asymmetrical Typographic Balance)
 function renderOptionsList() {
   if (!currentRouteData || !currentRouteData.options) return;
   const container = document.getElementById("route-results-container");
@@ -785,7 +758,7 @@ function renderOptionsList() {
               Recommended Route
             </span>
             <span class="text-xs font-semibold text-stone-300">
-              ${opt.itinerary.some(l => l.is_stay_on_bus) ? '🔄 Stay on Board (No Transfer)' : (opt.bus_transfers === 0 ? 'Direct Bus' : `${opt.bus_transfers} Transfer`)}
+              ${opt.itinerary.some(l => l.is_stay_on_bus) ? 'Stay on Board (No Transfer)' : (opt.bus_transfers === 0 ? 'Direct Bus' : `${opt.bus_transfers} Transfer`)}
             </span>
           </div>
 
@@ -858,7 +831,6 @@ function renderOptionsList() {
   if (options[0]) drawRouteGeometry(options[0].itinerary);
 }
 
-// 2. Active Step-by-Step Personalized Journey Mode (The Stepper)
 function startJourney(optionIndex) {
   selectedOptionIndex = optionIndex;
   isJourneyActive = true;
@@ -868,12 +840,10 @@ function startJourney(optionIndex) {
 
   const opt = currentRouteData.options[optionIndex];
 
-  // On mobile: expand sheet to full view so the user can read the entire itinerary guide
   if (window.innerWidth < 640) {
     setMobileSheetState("full");
   }
 
-  // Set up live bus tracking in HUD without hijacking map focus
   const firstBusLeg = opt.itinerary.find(l => !l.is_walking);
   if (firstBusLeg && firstBusLeg.live_vehicle) {
     trackBus(firstBusLeg.live_vehicle.vehicle_id, firstBusLeg.bus_number, firstBusLeg.board_stop.lat, firstBusLeg.board_stop.lon, firstBusLeg.bus_name, false);
@@ -946,7 +916,7 @@ function startJourney(optionIndex) {
 
           <!-- Ride Summary Banner -->
           <div class="text-xs text-stone-600 bg-stone-50 px-3 py-2 rounded-xl border border-stone-200/80 flex items-center justify-between">
-            <span>🚌 Stay on bus for <strong>${leg.stops_count} stops</strong> (~${leg.duration_mins} mins)</span>
+            <span>Stay on bus for <strong>${leg.stops_count} stops</strong> (~${leg.duration_mins} mins)</span>
           </div>
 
           <!-- Alighting Stop -->
@@ -1041,7 +1011,6 @@ function drawRouteGeometry(itinerary) {
 
   itinerary.forEach((leg, idx) => {
     if (leg.geometry && leg.geometry.length > 0) {
-      // Filter out invalid coords
       const validCoords = leg.geometry.filter(pt => 
         Array.isArray(pt) && pt.length >= 2 && !isNaN(pt[0]) && !isNaN(pt[1]) && pt[0] !== 0 && pt[1] !== 0
       );
@@ -1054,7 +1023,7 @@ function drawRouteGeometry(itinerary) {
             dashArray: "6, 8",
             opacity: 0.9
           });
-          line.bindTooltip(`🚶 ${leg.action_title}`, { sticky: true });
+          line.bindTooltip(`${leg.action_title}`, { sticky: true });
           routePolylineLayer.addLayer(line);
         } else {
           const line = L.polyline(validCoords, {
@@ -1064,14 +1033,13 @@ function drawRouteGeometry(itinerary) {
             lineCap: "round",
             lineJoin: "round"
           });
-          line.bindTooltip(`🚍 ${leg.bus_name}`, { sticky: true });
+          line.bindTooltip(`${leg.bus_name}`, { sticky: true });
           routePolylineLayer.addLayer(line);
         }
         allCoords.push(...validCoords);
       }
     }
 
-    // Add board stop pin
     if (leg.board_stop && leg.board_stop.lat && leg.board_stop.lon) {
       const isStart = (idx === 0);
       const icon = L.divIcon({
@@ -1079,7 +1047,7 @@ function drawRouteGeometry(itinerary) {
         html: `
           <div class="px-2 py-0.5 rounded-lg text-[10px] font-bold text-white shadow-md flex items-center space-x-1" 
                style="background-color: ${isStart ? '#4338ca' : (leg.route_color || '#18181b')}">
-            <span>${isStart ? '📍 Start' : '🔄 Transfer'}</span>
+            <span>${isStart ? 'Start' : 'Transfer'}</span>
           </div>
         `,
         iconSize: [60, 20],
@@ -1091,14 +1059,13 @@ function drawRouteGeometry(itinerary) {
     }
   });
 
-  // Add final destination pin
   const lastLeg = itinerary[itinerary.length - 1];
   if (lastLeg && lastLeg.alight_stop && lastLeg.alight_stop.lat && lastLeg.alight_stop.lon) {
     const icon = L.divIcon({
       className: "route-dest-wrapper",
       html: `
         <div class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-700 text-white shadow-md flex items-center space-x-1">
-          <span>🏁 Destination</span>
+          <span>Destination</span>
         </div>
       `,
       iconSize: [80, 20],
@@ -1122,7 +1089,6 @@ function drawRouteGeometry(itinerary) {
   }
 }
 
-// Live Bus Tracking Mode
 function trackBus(vehicleId, busNumber, boardLat, boardLon, busTitle, focusCamera = false) {
   trackedVehicleId = vehicleId;
   trackedBoardStop = { lat: boardLat, lon: boardLon };
@@ -1137,7 +1103,6 @@ function trackBus(vehicleId, busNumber, boardLat, boardLon, busTitle, focusCamer
   if (idEl) idEl.innerText = `Approaching your stop`;
   if (hud) hud.classList.remove("hidden");
 
-  // Only focus camera if explicitly requested (e.g. clicking Live Bus GPS button)
   if (focusCamera) {
     const marker = busMarkers[vehicleId];
     if (marker && map) {
@@ -1186,7 +1151,6 @@ function updateTrackedBusDisplay() {
   }
 }
 
-// Real-Time WebSocket Telemetry
 function initWebSocket() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/ws/live`;
@@ -1274,7 +1238,6 @@ function updateLiveVehicles(vehicles) {
       }
     });
 
-    // Remove stale vehicle markers
     Object.keys(busMarkers).forEach(vid => {
       if (!activeVids.has(vid)) {
         map.removeLayer(busMarkers[vid]);
@@ -1329,7 +1292,6 @@ function focusVehicle(vid) {
   }
 }
 
-// Departures Modal
 async function openDeparturesModal(stopId) {
   const stop = stopsData.find(s => s.id === stopId);
   if (!stop) return;
@@ -1378,7 +1340,6 @@ function closeDeparturesModal() {
   if (modal) modal.classList.add("hidden");
 }
 
-// Tab Switching
 function switchTab(tabId) {
   activeTabName = tabId;
   ["planner", "fleet", "places"].forEach(t => {

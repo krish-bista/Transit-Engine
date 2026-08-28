@@ -13,14 +13,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
-/** A transit stop parsed from assets/stops.json. */
 data class Stop(val id: Int, val name: String)
 
 class RouteViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TransitRepository()
 
-    // ── Stop catalogue ─────────────────────────────────────────
     var stops by mutableStateOf<List<Stop>>(emptyList())
         private set
     private var stopById: Map<Int, Stop> = emptyMap()
@@ -41,7 +39,6 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.Main) {
                     stops = parsed
                     stopById = parsed.associateBy { it.id }
-                    // Set sensible default source and target stops for quick testing
                     if (parsed.isNotEmpty()) {
                         selectedSource = parsed[0]
                         sourceQuery = parsed[0].name
@@ -51,7 +48,7 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     if (departureSeconds < 0) {
-                        departureSeconds = 16 * 3600 + 15 * 60 // 16:15 default
+                        departureSeconds = 16 * 3600 + 15 * 60
                     }
                 }
             } catch (e: Exception) {
@@ -60,10 +57,8 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Resolve a stop ID to its human-readable name. */
     fun stopName(id: Int): String = stopById[id]?.name ?: "Stop $id"
 
-    // ── Source autocomplete state ──────────────────────────────
     var sourceQuery by mutableStateOf("")
         private set
     var selectedSource by mutableStateOf<Stop?>(null)
@@ -80,7 +75,6 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         sourceQuery = stop.name
     }
 
-    // ── Target autocomplete state ──────────────────────────────
     var targetQuery by mutableStateOf("")
         private set
     var selectedTarget by mutableStateOf<Stop?>(null)
@@ -97,7 +91,6 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         targetQuery = stop.name
     }
 
-    // ── Departure time state (seconds past midnight) ───────────
     var departureSeconds by mutableIntStateOf(16 * 3600 + 15 * 60)
         private set
 
@@ -105,7 +98,6 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         departureSeconds = hour * 3600 + minute * 60
     }
 
-    /** Format seconds past midnight as HH:MM. */
     fun formatDepartureTime(): String {
         if (departureSeconds < 0) return ""
         val h = departureSeconds / 3600
@@ -113,7 +105,6 @@ class RouteViewModel(application: Application) : AndroidViewModel(application) {
         return "%02d:%02d".format(h, m)
     }
 
-    // ── Route result state ─────────────────────────────────────
     val legs = mutableStateListOf<Leg>()
     var errorMessage by mutableStateOf("")
         private set

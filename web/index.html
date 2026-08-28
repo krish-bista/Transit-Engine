@@ -6,7 +6,6 @@
   <title>Transit Thunder Bay</title>
   <meta name="description" content="Live bus tracking, route planning & directions for Thunder Bay Transit">
 
-  <!-- PWA Manifest & Theme -->
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1c1917">
   <meta name="mobile-web-app-capable" content="yes">
@@ -15,36 +14,26 @@
   <meta name="apple-mobile-web-app-title" content="Transit TB">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Custom Styles -->
   <link rel="stylesheet" href="styles.css?v=6.0">
 </head>
 <body class="bg-stone-100 text-stone-900 flex h-screen w-screen overflow-hidden antialiased">
 
-  <!-- Full-Bleed Map Surface -->
   <div id="map"></div>
 
-  <!-- Responsive Craft Drawer (Floating Left on Desktop, Bottom-Sheet on Mobile) -->
   <div class="craft-drawer-wrapper">
-    
-    <!-- Elevated White Glass Sheet -->
     <div id="craft-drawer-card" class="craft-drawer sheet-peek sm:sheet-full shadow-2xl">
       
-      <!-- Mobile Tactile Drag Area & Handle -->
       <div id="mobile-sheet-drag-area" class="mobile-drag-area sm:hidden flex flex-col items-center">
         <div class="mobile-drag-handle"></div>
       </div>
 
-      <!-- App Header & Navigation Bar -->
       <div class="craft-drawer-header px-5 sm:px-6 pt-2 sm:pt-5 pb-3 sm:pb-3.5 border-b border-stone-200/70 bg-white/60 flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing sm:cursor-default" style="touch-action: none;">
         <div class="flex items-center space-x-3">
           <div class="w-8 h-8 rounded-xl bg-stone-900 flex items-center justify-center text-white shadow-sm shrink-0">
@@ -64,14 +53,12 @@
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span id="telemetry-status-text">14 buses moving</span>
           </div>
-          <!-- Mobile Expand/Minimize Chevron -->
           <button onclick="toggleMobileSheet()" class="sm:hidden p-1.5 rounded-full text-stone-400 hover:text-stone-800 transition">
             <i id="mobile-chevron-icon" data-lucide="chevron-up" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
 
-      <!-- Segmented Tab Switcher -->
       <div class="px-4 sm:px-6 py-2 sm:py-2.5 bg-stone-50/60 border-b border-stone-200/50 flex space-x-1.5 shrink-0">
         <button id="tab-planner-btn" onclick="switchTab('planner')" 
                 class="flex-1 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-stone-900 shadow-sm border border-stone-200/80">
@@ -90,22 +77,18 @@
         </button>
       </div>
 
-      <!-- Tab Content Area (Single Natural Scroll Viewport) -->
       <div class="drawer-scroll-container p-4 sm:p-5">
 
-        <!-- Tab 1: Directions Planner -->
         <div id="tab-planner" class="space-y-3.5 sm:space-y-4">
           
-          <!-- Unified Origin/Destination Card -->
           <div class="bg-stone-50/90 border border-stone-200/80 rounded-2xl p-3 sm:p-3.5 space-y-2 shadow-sm">
             
-            <!-- Origin Row -->
             <div class="relative flex items-center">
               <div class="w-5 flex justify-center shrink-0">
                 <span class="w-2.5 h-2.5 rounded-full border-2 border-indigo-600 bg-white"></span>
               </div>
               <div class="flex-1 min-w-0 ml-2">
-                <input type="text" id="source-input" value="" placeholder="📍 Detecting your location..." autocomplete="off"
+                <input type="text" id="source-input" value="" placeholder="Detecting your location..." autocomplete="off"
                        class="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm sm:text-xs font-bold text-stone-900 placeholder-stone-400 focus:outline-none focus:border-stone-900 transition shadow-sm">
                 <div id="source-results" class="autocomplete-dropdown hidden"></div>
               </div>
@@ -114,7 +97,6 @@
               </button>
             </div>
 
-            <!-- Connecting Track & Swap -->
             <div class="flex items-center pl-2.5 -my-1">
               <div class="w-0.5 h-3.5 bg-stone-300 ml-[3px]"></div>
               <div class="flex-1 border-t border-dashed border-stone-200 mx-2"></div>
@@ -123,7 +105,6 @@
               </button>
             </div>
 
-            <!-- Destination Row -->
             <div class="relative flex items-center">
               <div class="w-5 flex justify-center shrink-0">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
@@ -135,7 +116,6 @@
               </div>
             </div>
 
-            <!-- Departure Time Segmented Control -->
             <div class="pt-2 border-t border-stone-200/60 space-y-2">
               <div class="flex p-1 bg-stone-200/60 rounded-xl">
                 <button type="button" id="time-mode-now-btn" onclick="setTimeMode('now')" 
@@ -150,7 +130,6 @@
                 </button>
               </div>
 
-              <!-- Schedule Window (Appears when 'Pick Date & Time' is clicked) -->
               <div id="schedule-picker-window" class="hidden grid grid-cols-2 gap-2 pt-1">
                 <div>
                   <label class="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">Departure Date</label>
@@ -165,7 +144,6 @@
               </div>
             </div>
 
-            <!-- Submit Action -->
             <button onclick="calculateRoute()" id="search-route-btn" 
                     class="w-full btn-tactile bg-stone-900 hover:bg-stone-800 text-white font-bold py-3 px-4 rounded-xl shadow flex items-center justify-center space-x-2 transition">
               <i data-lucide="sparkles" class="w-4 h-4 text-stone-300"></i>
@@ -174,12 +152,10 @@
 
           </div>
 
-          <!-- Dynamic Results Container -->
           <div id="route-results-container" class="space-y-3 pt-1 pb-6"></div>
 
         </div>
 
-        <!-- Tab 2: Live Fleet -->
         <div id="tab-fleet" class="space-y-3 pb-6 hidden">
           <div class="flex items-center justify-between shrink-0">
             <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">Live Buses on City Roads</h3>
@@ -188,14 +164,15 @@
           <div id="fleet-list-container" class="space-y-2"></div>
         </div>
 
-        <!-- Tab 3: Key Places -->
         <div id="tab-places" class="space-y-2.5 pb-6 hidden">
           <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">Quick Destinations</h3>
           
           <div onclick="setQuickDestination('Thunder Bay Regional Hospital', 184)" 
                class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-xl bg-rose-50 text-rose-600 text-base">🏥</span>
+              <span class="p-2 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <i data-lucide="activity" class="w-4 h-4"></i>
+              </span>
               <div>
                 <h4 class="text-sm font-bold text-stone-900">Regional Hospital</h4>
                 <p class="text-xs text-stone-500">Oliver Road Medical Campus</p>
@@ -207,7 +184,9 @@
           <div onclick="setQuickDestination('Lakehead University', 181)" 
                class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-xl bg-amber-50 text-amber-600 text-base">🎓</span>
+              <span class="p-2 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+              </span>
               <div>
                 <h4 class="text-sm font-bold text-stone-900">Lakehead University</h4>
                 <p class="text-xs text-stone-500">Agora & University Centre</p>
@@ -219,7 +198,9 @@
           <div onclick="setQuickDestination('Confederation College', 190)" 
                class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600 text-base">🏫</span>
+              <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <i data-lucide="building-2" class="w-4 h-4"></i>
+              </span>
               <div>
                 <h4 class="text-sm font-bold text-stone-900">Confederation College</h4>
                 <p class="text-xs text-stone-500">Main Campus Terminal</p>
@@ -231,7 +212,9 @@
           <div onclick="setQuickDestination('Waterfront Terminal', 0)" 
                class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-xl bg-sky-50 text-sky-600 text-base">⚓</span>
+              <span class="p-2 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <i data-lucide="anchor" class="w-4 h-4"></i>
+              </span>
               <div>
                 <h4 class="text-sm font-bold text-stone-900">Waterfront Terminal</h4>
                 <p class="text-xs text-stone-500">Downtown North Hub</p>
@@ -243,7 +226,9 @@
           <div onclick="setQuickDestination('City Hall Terminal', 200)" 
                class="p-3.5 bg-white border border-stone-200/90 hover:border-stone-800 rounded-2xl cursor-pointer transition flex items-center justify-between shadow-sm btn-tactile">
             <div class="flex items-center space-x-3">
-              <span class="p-2 rounded-xl bg-amber-50 text-amber-600 text-base">🏛</span>
+              <span class="p-2 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="landmark" class="w-4 h-4"></i>
+              </span>
               <div>
                 <h4 class="text-sm font-bold text-stone-900">City Hall Terminal</h4>
                 <p class="text-xs text-stone-500">Downtown South Hub</p>
@@ -258,7 +243,6 @@
     </div>
   </div>
 
-  <!-- Floating Map Creator Watermark Badge (Desktop & Tablet) -->
   <div class="absolute bottom-6 left-[490px] z-[390] hidden lg:flex items-center space-x-2 bg-white/95 backdrop-blur-md border border-stone-200/80 px-3.5 py-1.5 rounded-full shadow-md pointer-events-auto">
     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
     <span class="text-xs font-bold text-stone-800">Thunder Bay Transit</span>
@@ -266,7 +250,6 @@
     <span class="text-xs text-stone-500">Built by <strong class="text-stone-900 font-bold">Krish Bista</strong></span>
   </div>
 
-  <!-- Live Bus Tracking HUD Floating Card (Top Center on Mobile, Top Right on Desktop) -->
   <div id="tracking-hud" class="absolute top-4 sm:top-5 inset-x-4 sm:inset-x-auto sm:right-5 z-[400] bg-white/95 border border-stone-200/90 backdrop-blur-2xl p-3.5 sm:p-4 rounded-3xl shadow-2xl max-w-sm sm:max-w-xs hidden">
     <div class="flex items-center justify-between border-b border-stone-100 pb-2 mb-2">
       <div class="flex items-center space-x-2">
@@ -305,7 +288,6 @@
     </div>
   </div>
 
-  <!-- Floating Map Control Buttons (Top-Right on Mobile, Bottom-Right on Desktop) -->
   <div class="absolute top-20 sm:top-auto sm:bottom-6 right-4 sm:right-6 z-[390] flex flex-col space-y-2">
     <button onclick="centerMapOnTransit()" title="Center on My Location" class="p-3 bg-white/95 hover:bg-stone-50 text-stone-700 rounded-2xl shadow-lg border border-stone-200/80 transition btn-tactile">
       <i data-lucide="crosshair" class="w-4 h-4"></i>
@@ -315,7 +297,6 @@
     </button>
   </div>
 
-  <!-- Departures Modal / Dialog -->
   <div id="departures-modal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-white border border-stone-200 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -343,7 +324,7 @@
       </div>
     </div>
   </div>
-  <!-- PWA Install Banner -->
+
   <div id="pwa-install-banner" class="fixed bottom-0 inset-x-0 z-[60] p-4 hidden">
     <div class="bg-stone-900 text-white rounded-2xl p-4 shadow-2xl flex items-center justify-between max-w-lg mx-auto border border-stone-700">
       <div class="flex items-center space-x-3">
@@ -360,12 +341,9 @@
     </div>
   </div>
 
-  <!-- App Logic -->
   <script src="app.js?v=6.0"></script>
 
-  <!-- Service Worker Registration & PWA Install -->
   <script>
-    // Register Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
@@ -374,13 +352,11 @@
       });
     }
 
-    // PWA Install Prompt
     let deferredInstallPrompt = null;
 
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      // Show install banner after a short delay
       setTimeout(() => {
         const banner = document.getElementById('pwa-install-banner');
         if (banner) banner.classList.remove('hidden');
@@ -404,7 +380,6 @@
       if (banner) banner.classList.add('hidden');
     }
 
-    // Hide banner if already installed as PWA
     window.addEventListener('appinstalled', () => {
       dismissInstallBanner();
       console.log('[PWA] App installed successfully');

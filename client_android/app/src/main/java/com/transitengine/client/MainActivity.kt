@@ -36,14 +36,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ── Utility ────────────────────────────────────────────────────
 private fun formatSeconds(seconds: Int): String {
     val h = seconds / 3600
     val m = (seconds % 3600) / 60
     return "%02d:%02d".format(h, m)
 }
 
-// ── Main Screen ────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
@@ -65,7 +63,6 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ── Source stop picker ──────────────────────────────
             StopPickerField(
                 label = "Source Stop",
                 selectedStop = viewModel.selectedSource,
@@ -73,7 +70,6 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
                 onSelected = viewModel::onSourceSelected
             )
 
-            // ── Target stop picker ─────────────────────────────
             StopPickerField(
                 label = "Target Stop",
                 selectedStop = viewModel.selectedTarget,
@@ -81,13 +77,11 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
                 onSelected = viewModel::onTargetSelected
             )
 
-            // ── Departure time picker ──────────────────────────
             DepartureTimePicker(
                 displayText = viewModel.formatDepartureTime(),
                 onTimeSelected = viewModel::onDepartureTimeSelected
             )
 
-            // ── Find Route button ──────────────────────────────
             Button(
                 onClick = viewModel::findRoute,
                 enabled = !viewModel.isLoading
@@ -107,7 +101,6 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
                 Text("Find Route")
             }
 
-            // ── Error message ──────────────────────────────────
             if (viewModel.errorMessage.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -124,7 +117,6 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
                 }
             }
 
-            // ── Itinerary cards ────────────────────────────────
             if (viewModel.legs.isNotEmpty()) {
                 Text(
                     text = "Itinerary (${viewModel.legs.size} leg${if (viewModel.legs.size > 1) "s" else ""})",
@@ -150,7 +142,6 @@ fun RouteScreen(viewModel: RouteViewModel = viewModel()) {
     }
 }
 
-// ── Searchable Stop Picker Field ───────────────────────────────
 @Composable
 fun StopPickerField(
     label: String,
@@ -189,7 +180,6 @@ fun StopPickerField(
     }
 }
 
-// ── Stop Selection Dialog with fast filtering ─────────────────
 @Composable
 fun StopSelectionDialog(
     title: String,
@@ -253,7 +243,6 @@ fun StopSelectionDialog(
     )
 }
 
-// ── Departure Time Picker ──────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DepartureTimePicker(
@@ -308,7 +297,6 @@ fun DepartureTimePicker(
     }
 }
 
-// ── Itinerary Leg Card ─────────────────────────────────────────
 @Composable
 fun LegCard(
     index: Int,
@@ -322,7 +310,6 @@ fun LegCard(
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header row: leg number + route badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -346,12 +333,10 @@ fun LegCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Board → Alight row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Board info
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Board",
@@ -378,7 +363,6 @@ fun LegCard(
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
 
-                // Alight info
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Alight",

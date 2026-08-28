@@ -100,7 +100,6 @@ void TelemetryConsumer::run(std::string host, int port, std::string channel) {
                             uint32_t stop_sequence = j.value("stop_sequence", 0u);
                             uint32_t delay         = j.value("delay", 0u);
 
-                            // Grab exclusive write lock to safely mutate graph stop_times
                             {
                                 std::unique_lock lock(graph_.graph_mutex);
                                 for (auto& st : graph_.stop_times) {
