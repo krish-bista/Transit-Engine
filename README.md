@@ -1,14 +1,14 @@
 # TransitEngine
 
-TransitEngine is a multi-modal transit routing engine and real-time telemetry platform. It pairs a high-performance C++20 implementation of the Round-Based Public Transit Routing (RAPTOR) algorithm with a real-time GTFS-RT delay ingestion pipeline, an asynchronous FastAPI gateway, and an interactive web interface.
+TransitEngine is a full-stack transit routing engine and real-time telemetry platform. It uses a custom C++20 implementation of the RAPTOR (Round-Based Public Transit Routing) algorithm to compute optimal transit journeys in under a millisecond, even across dense transit networks.
 
-The system is designed to solve one of the classic challenges in public transit navigation: computing Pareto-optimal journeys (balancing travel time against number of transfers) across dense transit networks within fractions of a millisecond, while continuously reflecting live vehicle delays without stalling query threads.
+The project pairs this low-latency routing core with live GTFS-RT delay ingestion, a FastAPI gateway, an interactive web map, and a native Android application. Rather than relying on heavy graph-search algorithms like Dijkstra over large time-expanded networks, TransitEngine organizes timetable data into contiguous memory arrays and runs round-based sweeps to return Pareto-optimal itineraries (balancing travel time and transfer count) with live vehicle updates.
 
 ---
 
 ## Architecture Overview
 
-TransitEngine is organized into four decoupled services:
+TransitEngine is organized into decoupled services:
 
 ```mermaid
 graph TD
@@ -19,30 +19,30 @@ graph TD
     Redis -->|Sub| Gateway
 ```
 
-1. **C++20 RAPTOR Core Router**: Runs as a gRPC service. Loads binary GTFS data directly into contiguous, cache-friendly data structures and evaluates departure rounds at sub-millisecond latencies.
-2. **Telemetry Ingestion Layer**: Consumes live GTFS-RT updates and broadcasts trip delays through Redis Pub/Sub.
-3. **FastAPI Gateway**: Bridges browser clients and mobile apps to the C++ core over gRPC, while offering an embedded Python RAPTOR fallback for lightweight or standalone deployments. Also manages WebSocket connections to broadcast live bus positions to the frontend.
-4. **Interactive Web Client**: A single-page map interface built with modern vanilla JavaScript and Leaflet, displaying live bus markers, stop timetables, and multi-leg journey itineraries.
-5. **Android Client**: A native Android application built with Kotlin, Jetpack Compose, and Material 3.
+1. **C++20 RAPTOR Core Engine**: Runs as a gRPC service on port 50051. It loads binary-compiled GTFS data directly into memory and calculates departure rounds at sub-millisecond latencies.
+2. **Telemetry Ingestion Layer**: Ingests live GTFS-RT updates and broadcasts trip delays through Redis Pub/Sub.
+3. **FastAPI Gateway**: Connects web and mobile clients to the C++ core over gRPC, while offering an embedded Python RAPTOR fallback for standalone deployments. It also manages WebSocket connections to broadcast live bus positions to clients.
+4. **Interactive Web Client**: A single-page map interface built with modern vanilla JavaScript and Leaflet, displaying real-time bus locations, stop timetables, and multi-leg trip itineraries.
+5. **Android Client**: A native mobile app built with Kotlin, Jetpack Compose, and Material 3.
 
 ---
 
-## Core Features
+## How It Works
 
-### High-Performance RAPTOR Algorithm
-- **Round-Based Routing**: Rather than building massive time-expanded graphs for Dijkstra-based searches, RAPTOR operates directly on transit routes and trips in rounds (round $k$ finds optimal journeys with at most $k-1$ transfers).
-- **Pareto Optimality**: Simultaneously minimizes total journey time and the number of vehicle transfers.
-- **Cache-Conscious Data Layout**: Stop times, trips, and routes are stored in contiguous Compressed Sparse Row (CSR) arrays to maximize CPU cache locality during round sweeps.
+### High-Performance RAPTOR Routing
+- **Round-Based Navigation**: Instead of constructing massive time-expanded graphs, RAPTOR operates directly on transit routes and trips in rounds (round k finds optimal journeys with at most k - 1 transfers).
+- **Pareto Optimality**: Simultaneously minimizes total journey time and the number of transfers so users get practical, efficient routes.
+- **Cache-Conscious Data Layout**: Routes, trips, and stop times are organized into contiguous Compressed Sparse Row (CSR) arrays to maximize CPU cache locality during sweep passes.
 - **Binary GTFS Ingestion**: Raw GTFS feeds are compiled ahead of time into compact binary files (`stops.bin`, `stop_times.bin`, `routes.bin`, `trips.bin`, `transfers.bin`), eliminating CSV parsing overhead on startup.
 
-### Concurrent Real-Time Delay Ingestion
-- **Live Trip Updates**: Dynamic delays are received over Redis Pub/Sub and applied to active schedules on the fly.
-- **Read/Write Synchronization**: Uses `std::shared_mutex` so that high-volume background telemetry updates write to schedule arrays without blocking concurrent routing queries executed across worker threads.
+### Concurrent Real-Time Updates
+- **Live Delay Application**: Dynamic delays received over Redis Pub/Sub update active trip schedules on the fly.
+- **Thread-Safe Synchronization**: Uses `std::shared_mutex` so background telemetry writes do not block concurrent route queries running across worker threads.
 
-### Full-Featured API Gateway
-- **Multi-Option Route Planning**: Generates multiple departure choices with detailed walk legs, in-seat transfers (stay-on-board block chaining), intermediate stop lists, and shape-accurate route polylines.
-- **Live Fleet Broadcasts**: Background worker computes real-time vehicle interpolations and streams vehicle snapshots to clients over WebSockets.
-- **Reverse Geocoding & Stop Search**: Instant stop lookups with autocomplete, radius searching, and upcoming departure timetables with real-time delay tags.
+### API Gateway and Live Telemetry
+- **Flexible Route Planning**: Returns multiple departure choices with walking legs, in-seat transfers (stay-on-board block chaining), intermediate stop lists, and shape-accurate route polylines.
+- **Live Vehicle Positions**: Background workers compute real-time vehicle interpolations and stream snapshots to connected clients over WebSockets.
+- **Stop Search and Schedules**: Instant stop lookups with autocomplete, radius search, and live departure boards with delay tags.
 
 ---
 
@@ -63,7 +63,7 @@ transit-engine/
 ├── telemetry/              # GTFS-RT streaming & feed utilities
 │   ├── live_stream.py      # Live telemetry producer publishing to Redis
 │   └── gtfs_compiler.py    # Raw CSV GTFS to binary format compiler
-├── web/                    # Frontend client
+├── web/                    # Web frontend
 │   ├── index.html          # Interactive map interface
 │   ├── app.js              # State management, routing UI & WebSocket handler
 │   ├── styles.css          # Design system & responsive styling
@@ -82,23 +82,23 @@ transit-engine/
 
 ## Quickstart with Docker Compose
 
-The fastest way to get the full stack running locally is with Docker Compose.
+The fastest way to get the entire stack running locally is with Docker Compose.
 
 ### Prerequisites
-- Docker and Docker Compose installed on your machine.
+- Docker and Docker Compose installed on your system.
 
-### Start All Services
+### Running the Services
 
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/transit-engine.git
 cd transit-engine/infra
 
-# Build and start all microservices (Redis, C++ Engine, Gateway, Telemetry)
+# Build and start all containers (Redis, C++ Engine, Gateway, Telemetry)
 docker compose up --build -d
 ```
 
-Once running, access the web client in your browser:
+Open the web interface in your browser:
 ```text
 http://localhost:8000
 ```
@@ -112,7 +112,7 @@ docker compose down
 
 ## Local Development (Running Services Directly)
 
-If you prefer to run the services outside Docker for active development:
+If you want to run the individual services locally during development:
 
 ### 1. Start Redis
 ```bash
@@ -150,13 +150,13 @@ python telemetry/live_stream.py
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/health` | Health check, indexed stop/route count, active connections |
-| `GET` | `/api/stops` | List all stops or search by query parameter `?q=name` |
+| `GET` | `/api/health` | Health check, indexed stop and route counts, active connections |
+| `GET` | `/api/stops` | List all stops or search with query parameter `?q=name` |
 | `GET` | `/api/stops/{id}` | Retrieve details for a specific transit stop |
 | `GET` | `/api/stops/{id}/departures` | Fetch upcoming departures with live delay offsets |
 | `GET` | `/api/nearest-stop` | Find the nearest transit stop given `lat` and `lon` |
 | `GET` | `/api/routes` | List all available transit routes and metadata |
-| `POST` | `/api/route` | Plan a journey between two stops (see payload below) |
+| `POST` | `/api/route` | Plan a journey between two stops (see payload format below) |
 
 #### Sample Route Planning Request:
 ```json
@@ -198,7 +198,7 @@ Connect to `/ws/live` to receive real-time fleet snapshots and vehicle positions
 
 Tested on a representative municipal network (Thunder Bay Transit dataset):
 
-| Parameter | Measurement |
+| Metric | Result |
 | :--- | :--- |
 | **Indexed Stops** | 729 stops |
 | **Indexed Stop Times** | 161,504 binary records |
@@ -211,7 +211,7 @@ Tested on a representative municipal network (Thunder Bay Transit dataset):
 
 ## Deployment
 
-For cloud hosting instructions (including free deployment configs for Render, Railway, and Fly.io), refer to the [Deployment Guide](./DEPLOYMENT_GUIDE.md).
+For cloud hosting instructions (including configuration examples for Render, Railway, and Fly.io), see the [Deployment Guide](./DEPLOYMENT_GUIDE.md).
 
 ---
 
