@@ -1,5 +1,14 @@
 # TransitEngine
 
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![gRPC](https://img.shields.io/badge/gRPC-50051-244c5a?logo=grpc&logoColor=white)](https://grpc.io/)
+[![Redis](https://img.shields.io/badge/Redis-Pub%2FSub-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![Android](https://img.shields.io/badge/Android-Jetpack%20Compose-3DDC84?logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 TransitEngine is a full-stack transit routing engine and real-time telemetry platform. It uses a custom C++20 implementation of the RAPTOR (Round-Based Public Transit Routing) algorithm to compute optimal transit journeys in under a millisecond, even across dense transit networks.
 
 The project pairs this low-latency routing core with live GTFS-RT delay ingestion, a FastAPI gateway, an interactive web map, and a native Android application. Rather than relying on heavy graph-search algorithms like Dijkstra over large time-expanded networks, TransitEngine organizes timetable data into contiguous memory arrays and runs round-based sweeps to return Pareto-optimal itineraries (balancing travel time and transfer count) with live vehicle updates.
