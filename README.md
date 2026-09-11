@@ -123,12 +123,18 @@ docker compose down
 
 If you want to run the individual services locally during development:
 
-### 1. Start Redis
+### 1. Compile GTFS Data (First-Time Setup)
+```bash
+# Compiles raw CSVs in raw_gtfs/ to binary format in binary_gtfs/
+python telemetry/gtfs_compiler.py
+```
+
+### 2. Start Redis
 ```bash
 redis-server
 ```
 
-### 2. Build and Run the C++ Core Engine
+### 3. Build and Run the C++ Core Engine
 ```bash
 cd core
 mkdir build && cd build
@@ -139,16 +145,23 @@ cmake --build . --config Release
 ./transit_engine
 ```
 
-### 3. Start the FastAPI Gateway
+### 4. Start the FastAPI Gateway
 ```bash
 # From the project root
 pip install -r requirements.txt
 python -m uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 4. Start the Telemetry Producer (Optional)
+### 5. Start the Telemetry Producer (Optional)
 ```bash
 python telemetry/live_stream.py
+```
+
+### 6. Run the Android Client (Optional)
+```bash
+cd client_android
+./gradlew assembleDebug
+# Or open client_android/ in Android Studio and run on an emulator/device
 ```
 
 ---
