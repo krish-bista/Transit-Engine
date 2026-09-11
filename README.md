@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![TransitEngine Banner](https://img.shields.io/badge/TransitEngine-Sub--Millisecond%20Routing%20Engine-4338ca?style=for-the-badge&logo=fastapi&logoColor=white)
+![TransitEngine](https://img.shields.io/badge/TransitEngine-Sub--Millisecond%20Transit%20Routing-4338ca?style=for-the-badge&logo=fastapi&logoColor=white)
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat-square&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -15,9 +15,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 **A high-performance, real-time public transit routing engine and live telemetry platform.**  
-Calculates multi-modal Pareto-optimal journeys in **under 1 millisecond** using the RAPTOR algorithm, zero-copy memory structures, and streaming GTFS-RT delay updates over Redis Pub/Sub.
+Computes multi-leg Pareto-optimal itineraries in **under 1 millisecond** using the RAPTOR algorithm over zero-copy Compressed Sparse Row (CSR) binary indices, with streaming GTFS-RT delay updates over Redis Pub/Sub.
 
-[Key Features](#-key-features) • [Why RAPTOR?](#-why-raptor-over-graph-search) • [System Architecture](#-system-architecture) • [Quickstart](#-quickstart-with-docker-compose) • [API Reference](#-api-reference) • [Performance](#-performance-benchmarks) • [Deployment](#-cloud-deployment)
+[Key Features](#-key-features) • [Why RAPTOR?](#-why-raptor-over-graph-search) • [Algorithmic Architecture](#-the-raptor-algorithm-deep-dive) • [System Flow](#-system-architecture) • [Quickstart](#-quickstart-with-docker-compose) • [API Cookbook](#-api-reference--curl-recipes) • [Benchmarks](#-performance-benchmarks) • [Deployment](#-cloud-deployment)
 
 </div>
 
@@ -25,30 +25,96 @@ Calculates multi-modal Pareto-optimal journeys in **under 1 millisecond** using 
 
 ## 💡 Why RAPTOR Over Graph Search?
 
-Traditional transit routers build huge **time-expanded or time-dependent graph models** and execute Dijkstra or $A^*$. While effective for road navigation, this paradigm breaks down in dense metropolitan transit networks:
+Traditional transit routers construct massive **time-expanded or time-dependent graph models** and execute Dijkstra or $A^*$. While effective for road networks, this approach suffers severely in public transportation:
+
+```
+Graph Search (Dijkstra / A*)               RAPTOR (Round-Based Routing)
+-----------------------------               ----------------------------
+[Stop A @ 14:00] ─── Edge ───► [Stop B @ 14:15]    Round k: Sweep Route 1 in contiguous memory
+       │                              │            Round k+1: Relax transfers via Footpaths
+[Stop A @ 14:30] ─── Edge ───► [Stop B @ 14:45]    No priority queues • No graph node explosion
+```
 
 | Dimension | 🌐 Dijkstra / $A^*$ on Graphs | ⚡ RAPTOR (TransitEngine) |
 | :--- | :--- | :--- |
 | **Data Representation** | Millions of discrete nodes (stop + time) & graph edges | Contiguous Compressed Sparse Row (CSR) arrays |
-| **Cache Locality** | Random pointer chasing through memory | Sequential CPU L1/L2/L3 cache line sweeps |
-| **Transfer Optimization** | Requires artificial transfer cost heuristics | Naturally discovers Pareto frontiers $\langle \text{arrival time}, \text{transfers} \rangle$ |
+| **Memory Locality** | Random pointer chasing through heap graph structures | Sequential CPU L1/L2/L3 cache line sweeps |
+| **Transfer Optimization** | Requires artificial transfer penalty weights | Naturally discovers Pareto frontiers $\langle \text{arrival time}, \text{transfers} \rangle$ |
 | **Live Delay Ingestion** | Heavy edge re-weighting & graph restructuring | Direct in-place time offset updates via thread-safe mutex |
 | **Query Latency** | 20 ms – 150 ms | **0.4 ms – 0.8 ms** (sub-millisecond) |
-
-> **How RAPTOR Operates**: Instead of graph edge traversals, RAPTOR (*Round-Based Public Transit Routing*) computes journeys in discrete rounds $k$. Round $k$ determines the earliest arrival time at every stop using at most $k$ transit trips. It only evaluates routes serving stops marked in round $k-1$, ensuring minimal computational overhead and optimal multi-criteria results.
 
 ---
 
 ## ⚡ Key Features
 
-- 🏎️ **C++20 Sub-Millisecond RAPTOR Core**: Custom C++20 engine executing round-based sweeps over CSR memory arrays, yielding $<1\text{ ms}$ response times.
-- 🎯 **Multi-Criteria Pareto Optimality**: Computes the optimal trade-off between total travel time and number of transfers without arbitrary penalty weights.
-- 🔄 **Smart Block Transfer Recognition**: Detects when interlining buses share a `block_id` or scheduled stay-on-board vehicle continuity, instructing passengers to stay on board instead of transferring unnecessarily.
-- 📡 **Real-Time GTFS-RT Telemetry Streaming**: Ingests vehicle delays and positions via Redis Pub/Sub; dynamically updates schedule vectors using `std::shared_mutex` read/write locking.
-- 🌐 **Async FastAPI Gateway**: High-concurrency async gateway exposing clean RESTful endpoints, bridging gRPC to the C++ core, broadcasting 60 FPS vehicle positions via WebSockets, and providing an embedded Python RAPTOR engine fallback.
-- 🗺️ **Full-Featured PWA Web Client**: Responsive, dark-mode Leaflet map interface with stop auto-complete, route polylines, nearest-stop geolocation, departure boards with live delay badges, and step-by-step trip timelines.
-- 📱 **Native Android Client**: Modern mobile client built with Kotlin, Jetpack Compose, Material 3, and Coroutines.
-- 📦 **Zero-Copy GTFS Binary Serialization**: Ahead-of-time compiler transforms raw CSV feeds into binary records (`.bin`), eliminating CSV parsing overhead at runtime.
+- 🏎️ **C++20 RAPTOR Routing Core**: Round-based dynamic programming over cache-aligned CSR arrays, achieving query latencies in **0.4 ms – 0.8 ms**.
+- 🎯 **Multi-Criteria Pareto Optimality**: Simultaneously minimizes arrival time and transfer count without arbitrary weighting hacks.
+- 🔄 **Smart Block-Transfer Recognition**: Detects when interlining buses share a `block_id` or scheduled stay-on-board vehicle continuity, instructing passengers to remain seated rather than transferring.
+- 📡 **Real-Time GTFS-RT Telemetry**: Streaming delay updates published over Redis Pub/Sub and applied in-memory using `std::shared_mutex` read/write locking.
+- 🌐 **Async FastAPI Gateway**: Exposes clean RESTful endpoints, bridges gRPC to the C++ core, broadcasts live vehicle positions at 60 FPS over WebSockets, and features an embedded Python RAPTOR engine for standalone fallback.
+- 🗺️ **Progressive Web App (PWA)**: Dark-mode Leaflet map interface with stop search, route polylines, nearest-stop geolocation, departure boards with live delay badges, and step-by-step trip timelines.
+- 📱 **Native Android Client**: Jetpack Compose mobile client built with Kotlin, Material 3, and Coroutine StateFlows.
+- 📦 **Zero-Copy GTFS Binary Ingestion**: Ahead-of-time compiler turns raw CSV feeds into memory-mappable binary records (`.bin`), loading hundreds of thousands of records in $<4\text{ ms}$.
+
+---
+
+## 🔬 The RAPTOR Algorithm: Deep Dive
+
+TransitEngine implements the **RAPTOR** (*Round-Based Public Transit Routing*) algorithm published by Delling et al.
+
+### Algorithmic Execution Lifecycle
+
+1. **Initialization**: Set earliest known arrival time $\tau_k(p) = \infty$ for all stops $p$ and rounds $k$, except $\tau_0(p_{\text{source}}) = \text{dep\_time}$. Mark $p_{\text{source}}$.
+2. **Round $k$ (Transit Traversal)**:
+   - For each marked stop $p$ from round $k-1$, look up all serving routes $R(p)$ using the `stop_routes` CSR index.
+   - For each route $r \in R(p)$, find the earliest trip $t \in r$ reachable at or after $\tau_{k-1}(p)$.
+   - Traverse all subsequent stops along $r$, updating $\tau_k(p_i) = \min(\tau_k(p_i), \text{arr}(t, p_i))$ and tracking the boarding leg.
+3. **Footpath Relaxation (Transfers)**:
+   - For every stop $p_i$ updated in Round $k$, iterate over its spatial footpaths $p_j \in \text{Footpaths}(p_i)$.
+   - Relax arrival times: $\tau_k(p_j) = \min(\tau_k(p_j), \tau_k(p_i) + \text{walk\_time}(p_i, p_j))$.
+   - Mark newly reached stops for Round $k+1$.
+4. **Termination & Reconstruction**:
+   - The loop terminates when no stops are marked or the maximum transfer round is reached.
+   - Backtrack through recorded parent pointers to reconstruct the exact multi-leg itinerary.
+
+```
+Round 0: [Origin Stop] (t = 14:00)
+   │ (Transit Scan: Bus 3M)
+Round 1: [Transfer Hub] (t = 14:18) ──(Footpath Walk: 120m)──► [Platform 2] (t = 14:20)
+   │ (Transit Scan: Bus 1)
+Round 2: [Destination Stop] (t = 14:38)  <-- Optimal Pareto Frontier reached!
+```
+
+---
+
+## 💾 Zero-Copy Binary Memory Layout
+
+Instead of parsing bulky CSV files at startup, `telemetry/gtfs_compiler.py` packs transit datasets into contiguous binary structs with `#pragma pack(push, 1)`:
+
+```cpp
+// PackedStop: 20 bytes per record
+struct PackedStop {
+    uint32_t id;    // Stop numeric index (0 .. N-1)
+    double   lat;   // WGS84 Latitude
+    double   lon;   // WGS84 Longitude
+};
+
+// PackedStopTime: 20 bytes per record
+struct PackedStopTime {
+    uint32_t trip_id;        // Monotonic Trip ID
+    uint32_t stop_id;        // Stop ID reference
+    uint32_t arr_sec;        // Arrival seconds past midnight
+    uint32_t dep_sec;        // Departure seconds past midnight
+    uint32_t stop_sequence;   // Sequence index within trip
+};
+```
+
+### Binary Dataset Metrics
+
+| Binary File | Struct | Record Count | Binary Size | Ingestion Speed |
+| :--- | :--- | :--- | :--- | :--- |
+| `binary_gtfs/stops.bin` | `PackedStop` | 729 stops | ~14.6 KB | **< 0.1 ms** |
+| `binary_gtfs/stop_times.bin` | `PackedStopTime` | 161,504 stop times | ~3.23 MB | **~3.5 ms** |
 
 ---
 
@@ -165,7 +231,7 @@ transit-engine/
 
 ## 🚀 Quickstart with Docker Compose
 
-The simplest and fastest way to spin up the entire cluster (Redis, C++ Engine, FastAPI Gateway, and Telemetry Producer) is with Docker Compose:
+The fastest way to spin up the entire cluster (Redis, C++ Engine, FastAPI Gateway, and Telemetry Producer) is with Docker Compose:
 
 ### 1. Clone & Start Cluster
 
@@ -195,7 +261,7 @@ docker compose down
 
 ## 🛠️ Local Development (Step-by-Step)
 
-If you prefer running services directly on your host machine without Docker:
+If you prefer running services directly on your host machine:
 
 ### Prerequisites
 - **Python 3.10+**
@@ -246,9 +312,9 @@ cd client_android
 
 ---
 
-## 🔌 API Reference
+## 🔌 API Reference & cURL Recipes
 
-### REST Endpoints
+### Endpoint Summary
 
 | Method | Endpoint | Parameters / Body | Description |
 | :--- | :--- | :--- | :--- |
@@ -262,20 +328,20 @@ cd client_android
 
 ---
 
-### Route Planning Request (`POST /api/route`)
+### cURL Recipes
 
-#### Request Body
-```json
-{
-  "source_stop": 1024,
-  "target_stop": 2048,
-  "departure_time": "14:30:00",
-  "departure_date": "today",
-  "num_options": 3
-}
+#### 1. Plan a Multi-Option Route (`POST /api/route`)
+```bash
+curl -X POST http://localhost:8000/api/route \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_stop": 1024,
+    "target_stop": 2048,
+    "departure_time": "14:30:00",
+    "num_options": 3
+  }'
 ```
 
-#### Response Example (Truncated)
 ```json
 {
   "success": true,
@@ -327,6 +393,44 @@ cd client_android
 }
 ```
 
+#### 2. Find Nearest Stop via Geolocation (`GET /api/nearest-stop`)
+```bash
+curl "http://localhost:8000/api/nearest-stop?lat=48.4284&lon=-89.2642"
+```
+
+```json
+{
+  "id": 1052,
+  "name": "Golf Links & Oliver",
+  "lat": 48.4281,
+  "lon": -89.2639,
+  "distance_m": 38
+}
+```
+
+#### 3. Real-Time Stop Departures (`GET /api/stops/{id}/departures`)
+```bash
+curl "http://localhost:8000/api/stops/1024/departures"
+```
+
+```json
+{
+  "stop_id": 1024,
+  "departures": [
+    {
+      "trip_id": "1449021",
+      "route_short_name": "3M",
+      "route_long_name": "Memorial",
+      "headsign": "Confederation College",
+      "scheduled_departure": "14:30:00",
+      "delay_sec": 120,
+      "estimated_departure": "14:32:00",
+      "status": "DELAYED 2m"
+    }
+  ]
+}
+```
+
 ---
 
 ### WebSocket Live Telemetry Stream (`WS /ws/live`)
@@ -346,15 +450,6 @@ Clients establish a persistent WebSocket connection to receive live vehicle posi
       "bearing": 182.5,
       "speed_kmh": 34.2,
       "delay_sec": 120
-    },
-    {
-      "trip_id": "1449033",
-      "route_id": "1",
-      "lat": 48.4110,
-      "lon": -89.2391,
-      "bearing": 94.0,
-      "speed_kmh": 41.0,
-      "delay_sec": 0
     }
   ]
 }
@@ -400,6 +495,17 @@ TransitEngine includes ready-to-use cloud infrastructure definitions:
 - **VPS / Bare-Metal**: Standard systemd and Docker instructions included.
 
 👉 **See the full [Deployment Guide](./DEPLOYMENT_GUIDE.md) for step-by-step instructions.**
+
+---
+
+## 💼 Resume & Interview Talking Points
+
+If you are showcasing TransitEngine on your resume or in technical interviews:
+
+- **Algorithm Design**: "Implemented RAPTOR (Round-Based Public Transit Routing) from scratch in C++20, replacing legacy time-expanded graph search and reducing worst-case query latency from ~100 ms to <1 ms."
+- **Systems & Memory Optimization**: "Designed zero-copy binary serialization (`PackedStopTime`, `PackedStop`) with `#pragma pack` and Compressed Sparse Row (CSR) indices, ensuring contiguous cache-line memory sweeps without heap churn."
+- **Concurrency & Live Streaming**: "Built a real-time GTFS-RT telemetry pipeline using Redis Pub/Sub and `std::shared_mutex` read/write locking to apply live vehicle delays without blocking concurrent reader threads."
+- **Full-Stack Architecture**: "Constructed an async FastAPI gateway serving WebSocket vehicle positions at 60 FPS, paired with a PWA web frontend and a native Android Jetpack Compose application."
 
 ---
 
