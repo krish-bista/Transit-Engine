@@ -14,19 +14,25 @@ To ensure all contributions count towards your GitHub profile activity and histo
    git clone https://github.com/<your-username>/transit-engine.git
    cd transit-engine
    ```
-3. **Create a descriptive feature branch**:
+3. **Install development dependencies**:
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+4. **Create a descriptive feature branch**:
    ```bash
    git checkout -b feature/improved-raptor-pruning
    ```
-4. **Make your changes with atomic, semantic commits**:
+5. **Make your changes with atomic, semantic commits**:
    ```bash
    git commit -m "feat(core): optimize earliest trip search in RAPTOR route traversal"
    ```
-5. **Run test suite**:
+6. **Run linters and test suites**:
    ```bash
-   pytest gateway/test_main.py
+   flake8 gateway telemetry
+   black --check gateway telemetry
+   pytest --cov=gateway --cov=telemetry --cov-report=term-missing
    ```
-6. **Push and open a Pull Request**:
+7. **Push and open a Pull Request**:
    ```bash
    git push origin feature/improved-raptor-pruning
    ```
@@ -43,13 +49,29 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 - `test:` Adding or refactoring tests
 - `perf:` Performance improvements
 - `refactor:` Code restructuring without functional changes
-- `ci:` CI/CD workflow updates
+- `ci:` CI/CD workflow and tooling updates
+- `chore:` Maintenance tasks and configuration
 
 ---
 
-## 🧪 Testing Guidelines
+## 🧪 Testing & Code Quality Guidelines
 
-Before opening a pull request, ensure all tests pass:
-- **Python Gateway**: `pytest gateway/test_main.py`
-- **GTFS Compiler**: `python telemetry/gtfs_compiler.py`
-- **C++ Build**: `cmake -B build -S core && cmake --build build`
+Before opening a pull request, ensure all tests pass and linters succeed:
+- **Run Full Test Suite with Coverage**:
+  ```bash
+  pytest --cov=gateway --cov=telemetry --cov-report=term-missing
+  ```
+- **Run Code Formatter & Linters**:
+  ```bash
+  black gateway telemetry
+  flake8 gateway telemetry
+  ```
+- **GTFS Compiler Validation**:
+  ```bash
+  python telemetry/gtfs_compiler.py
+  ```
+- **C++ Build**:
+  ```bash
+  cmake -B build -S core -DCMAKE_BUILD_TYPE=Release
+  cmake --build build --config Release
+  ```

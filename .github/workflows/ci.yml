@@ -10,32 +10,75 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  python-gateway-test:
-    name: Python Gateway & RAPTOR Tests
+  code-quality:
+    name: Code Quality & Linting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Linting Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+
+      - name: Check Code Formatting (Black)
+        run: |
+          black --check gateway telemetry
+
+      - name: Lint Python Codebase (Flake8)
+        run: |
+          flake8 gateway telemetry --count --show-source --statistics
+
+  python-test-matrix:
+    name: Python Tests (Py ${{ matrix.python-version }})
+    needs: code-quality
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
-      - name: Compile GTFS Data
+      - name: Compile GTFS Binary Feed
         run: |
           python telemetry/gtfs_compiler.py
 
-      - name: Run Test Suite
+      - name: Run Test Suite with Coverage
         run: |
-          pytest gateway/test_main.py -v
+          pytest --cov=gateway --cov=telemetry --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Upload Coverage Artifact (Python 3.12)
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: coverage.xml
+          retention-days: 14
 
   cpp-engine-build:
     name: C++20 Core Engine Build
@@ -56,3 +99,29 @@ jobs:
       - name: Build Core Microservice
         run: |
           cmake --build build --config Release --parallel $(nproc)
+
+  docker-build-check:
+    name: Docker Container Image Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Gateway Dockerfile Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./infra/Dockerfile.gateway
+          push: false
+          tags: transit-engine-gateway:test
+
+      - name: Validate Python Worker Dockerfile Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./infra/Dockerfile.python
+          push: false
+          tags: transit-engine-python:test
