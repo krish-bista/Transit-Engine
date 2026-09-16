@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["gateway", "telemetry"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 120
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | build
+  | __pycache__
+  | proto
+  | routing_pb2\.py
+  | routing_pb2_grpc\.py
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_glob = ["*_pb2.py", "*_pb2_grpc.py", ".venv/*", "build/*"]
+
+[tool.coverage.run]
+source = ["gateway", "telemetry"]
+omit = [
+    "*_pb2.py",
+    "*_pb2_grpc.py",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "gateway/win_proxy.py",
+    "gateway/tcp_relay.py"
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 60
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass"
+]
