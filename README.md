@@ -511,6 +511,12 @@ If you are showcasing TransitEngine on your resume or in technical interviews:
 
 ---
 
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [CONTRIBUTING.md](./CONTRIBUTING.md) guide for details on how to get started.
+
+---
+
 ## 📄 License
 
 This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for complete details.
