@@ -31,15 +31,17 @@ def get_thunder_bay_time() -> int:
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 try:
     from gateway.gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
     from gateway.raptor_engine import RaptorEngine
+    from gateway.metrics import metrics
 except ImportError:
     from gtfs_data import GTFSDataManager, THUNDER_BAY_ROUTES
     from raptor_engine import RaptorEngine
+    from metrics import metrics
 
 app = FastAPI(title="Transit Engine", version="2.5.0")
 
@@ -53,6 +55,7 @@ app.add_middleware(
 
 data_manager = GTFSDataManager()
 raptor_engine = RaptorEngine(data_manager.stops, data_manager.stop_times, data_manager.routes, data_manager.trips)
+metrics.set_gtfs_metadata(len(data_manager.stops), len(raptor_engine.routes))
 
 class ConnectionManager:
     def __init__(self):
@@ -61,10 +64,12 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
+        metrics.set_active_websockets(len(self.active_connections))
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
+        metrics.set_active_websockets(len(self.active_connections))
 
     async def broadcast(self, message: dict):
         for connection in list(self.active_connections):
@@ -136,6 +141,29 @@ def health():
         "active_ws_clients": len(ws_manager.active_connections),
         "live_vehicles_count": len(live_vehicles)
     }
+
+@app.get("/ready")
+def readiness():
+    is_ready = bool(data_manager.stops and raptor_engine.routes)
+    if not is_ready:
+        raise HTTPException(status_code=503, detail="Transit Engine data loading in progress")
+    return {"status": "ready", "version": "2.5.0", "stops": len(data_manager.stops), "routes": len(raptor_engine.routes)}
+
+@app.get("/live")
+def liveness():
+    return {"status": "live", "timestamp": time.time()}
+
+@app.get("/metrics")
+def get_prometheus_metrics():
+    metrics.set_active_websockets(len(ws_manager.active_connections))
+    metrics.set_live_vehicles(len(live_vehicles))
+    return PlainTextResponse(metrics.generate_prometheus_text(), media_type="text/plain; version=0.0.4; charset=utf-8")
+
+@app.get("/api/system/metrics")
+def get_json_metrics():
+    metrics.set_active_websockets(len(ws_manager.active_connections))
+    metrics.set_live_vehicles(len(live_vehicles))
+    return metrics.get_summary()
 
 @app.get("/api/nearest-stop")
 def get_nearest_stop(lat: float, lon: float):
@@ -363,6 +391,7 @@ def calculate_single_itinerary(source_id: int, target_id: int, dep_sec: int):
 
 @app.post("/api/route")
 def plan_route(req: RoutePlanRequest):
+    t_start = time.time()
     dep_sec = 0
     if req.departure_time is None or req.departure_time == "now":
         dep_sec = get_thunder_bay_time()
@@ -377,6 +406,7 @@ def plan_route(req: RoutePlanRequest):
     source = data_manager.get_stop(req.source_stop)
     target = data_manager.get_stop(req.target_stop)
     if not source or not target:
+        metrics.record_routing_query("error", time.time() - t_start)
         raise HTTPException(status_code=400, detail="Invalid starting location or destination")
 
     options = []
@@ -406,7 +436,9 @@ def plan_route(req: RoutePlanRequest):
 
         current_search_dep = max(current_search_dep + 120, opt["first_bus_sec"] + 60)
 
+    elapsed = time.time() - t_start
     if not options:
+        metrics.record_routing_query("not_found", elapsed)
         return {
             "success": False,
             "message": "No bus connections found for this time. Try selecting a different time or nearby stop.",
@@ -417,6 +449,7 @@ def plan_route(req: RoutePlanRequest):
             "options": []
         }
 
+    metrics.record_routing_query("success", elapsed)
     return {
         "success": True,
         "source": source,

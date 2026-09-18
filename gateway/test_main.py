@@ -130,3 +130,36 @@ def test_connection_manager():
     assert dummy_ws not in manager.active_connections
     manager.disconnect("non_existent")
 
+def test_readiness_probe():
+    response = client.get("/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["stops"] > 0
+    assert data["routes"] > 0
+
+def test_liveness_probe():
+    response = client.get("/live")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "live"
+    assert "timestamp" in data
+
+def test_prometheus_metrics_endpoint():
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "text/plain" in response.headers["content-type"]
+    text = response.text
+    assert "transit_engine_uptime_seconds" in text
+    assert "transit_engine_gtfs_stops_loaded" in text
+    assert "transit_engine_routing_requests_total" in text
+
+def test_json_metrics_endpoint():
+    response = client.get("/api/system/metrics")
+    assert response.status_code == 200
+    data = response.json()
+    assert "uptime_seconds" in data
+    assert "latency_ms" in data
+    assert "loaded_stops" in data
+
+
