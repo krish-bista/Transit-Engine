@@ -475,6 +475,58 @@ Evaluated on standard municipal GTFS feeds (Thunder Bay Transit dataset: 729 sto
 
 ---
 
+## 💻 Interactive Terminal CLI (`transit-cli`)
+
+TransitEngine includes a rich command-line explorer and GTFS validation suite for rapid terminal debugging:
+
+```bash
+# 1. Plan an optimal transit journey in the terminal with ASCII timeline
+python -m cli.transit_cli route --origin "Waterfront" --destination "Confederation" --time "08:30:00"
+
+# 2. Search and inspect transit stops
+python -m cli.transit_cli stops --query "Memorial" --limit 10
+
+# 3. Validate GTFS feed schema, monotonicity, and referential integrity
+python -m cli.transit_cli validate
+
+# 4. Check live status, Prometheus metrics, and latency of a running gateway
+python -m cli.transit_cli health --url http://localhost:8000
+```
+
+---
+
+## 🏎️ Routing Benchmark & Latency Profiler
+
+Run statistical load tests to measure throughput (QPS), percentiles (P50, P90, P95, P99), and concurrency scaling:
+
+```bash
+# Run 200 random routing queries with 4 concurrent worker threads
+python -m tools.benchmark_engine --queries 200 --concurrency 4 --markdown benchmark_report.md
+```
+
+---
+
+## 📡 GTFS Realtime (GTFS-RT) & Delay Simulation
+
+The telemetry package provides a physics-informed vehicle simulator (`telemetry/gtfs_rt_simulator.py`) capable of:
+- Geodesic interpolation of vehicle coordinates along shape geometries and stop sequences.
+- Dynamic bearing calculation and speed estimation in km/h and m/s.
+- Realistic delay injection with Gaussian traffic variance and GPS noise modeling.
+- Exporting standard GTFS-RT **VehiclePositions** and **TripUpdates** JSON & protobuf payloads.
+
+---
+
+## 📈 Prometheus Metrics & Observability
+
+The Gateway exposes standard Prometheus metrics for Grafana dashboarding and Kubernetes health monitoring:
+
+- **Prometheus Metrics**: `GET /metrics` (`transit_engine_routing_requests_total`, `transit_engine_routing_duration_seconds`, `transit_engine_active_websockets`)
+- **JSON Metrics Summary**: `GET /api/system/metrics`
+- **Readiness Probe**: `GET /ready` (returns `200 OK` when transit data is indexed, `503` while loading)
+- **Liveness Probe**: `GET /live`
+
+---
+
 ## ⚙️ Configuration & Environment Variables
 
 | Variable | Default Value | Description |
