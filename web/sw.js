@@ -1,4 +1,4 @@
-const CACHE_NAME = 'transit-tb-v1';
+const CACHE_NAME = 'transit-tb-v2';
 
 const APP_SHELL = [
   '/',
@@ -29,6 +29,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Leave third-party map tiles to the browser HTTP cache and provider headers.
+  if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) {
     return;

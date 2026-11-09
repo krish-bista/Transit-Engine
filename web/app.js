@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 function initMap() {
   map = L.map("map", {
     zoomControl: false,
-    attributionControl: false,
+    attributionControl: true,
     preferCanvas: true,
     renderer: L.canvas({ padding: 0.5 }),
     wheelDebounceTime: 40,
@@ -58,9 +58,9 @@ function initMap() {
     tap: false
   }).setView([48.406, -89.260], 13);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     updateWhenIdle: false,
     updateWhenZooming: false
   }).addTo(map);
